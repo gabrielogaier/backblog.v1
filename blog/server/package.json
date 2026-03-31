@@ -1,0 +1,31 @@
+{
+  "name": "backblog-server",
+  "version": "1.0.0",
+  "description": "API Express do Backblog (autenticação, posts, IA e configurações).",
+  "main": "backblog.js",
+  "scripts": {
+    "start": "node backblog.js",
+    "dev": "NODE_ENV=development node backblog.js"
+  },
+  "keywords": [
+    "backblog",
+    "express",
+    "cms"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "argon2": "^0.44.0",
+    "compression": "^1.8.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.2.1",
+    "express-validator": "^7.3.0",
+    "helmet": "^8.1.0",
+    "multer": "^2.0.2",
+    "openai": "^6.8.1",
+    "pg": "^8.16.3"
+  }
+}

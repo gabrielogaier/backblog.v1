@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-slate-950 text-slate-100 min-h-screen;
+}
+
+input,
+textarea,
+button {
+  font: inherit;
+}
+
+.tiptap {
+  @apply min-h-[280px] text-slate-100;
+}
+
+.tiptap:focus-visible {
+  outline: none;
+}
+
+.tiptap p,
+.tiptap ul,
+.tiptap ol {
+  @apply mb-4 leading-relaxed;
+}
+
+.tiptap h2 {
+  @apply mt-6 mb-3 text-2xl font-semibold text-white;
+}
+
+.tiptap h3 {
+  @apply mt-5 mb-2 text-xl font-semibold text-white;
+}
+
+.tiptap ul {
+  @apply list-disc pl-6;
+}
+
+.tiptap ol {
+  @apply list-decimal pl-6;
+}
+
+.tiptap blockquote {
+  @apply border-l-4 border-emerald-400/60 pl-4 italic text-slate-300;
+}
+
+.tiptap pre {
+  @apply overflow-auto rounded-2xl bg-slate-900 p-4 font-mono text-sm;
+}
+
+.tiptap table {
+  @apply my-5 w-full border-collapse overflow-hidden rounded-2xl border border-slate-700;
+}
+
+.tiptap th {
+  @apply border border-slate-700 bg-slate-900/80 px-3 py-2 text-left text-sm font-semibold text-slate-100;
+}
+
+.tiptap td {
+  @apply border border-slate-700 bg-slate-950/80 px-3 py-2 text-sm text-slate-200;
+}

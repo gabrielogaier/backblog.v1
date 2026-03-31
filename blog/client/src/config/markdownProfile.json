@@ -1,0 +1,42 @@
+{
+  "headings": {
+    "allowedLevels": [2, 3]
+  },
+  "marks": {
+    "bold": true,
+    "italic": true,
+    "strike": true
+  },
+  "lists": {
+    "unorderedMarkers": ["-", "*"],
+    "orderedPattern": "1."
+  },
+  "blockquote": {
+    "marker": ">"
+  },
+  "inlineCode": {
+    "delimiter": "`",
+    "toolbarLabel": "</>"
+  },
+  "codeBlock": {
+    "fence": "```",
+    "toolbarLabel": "{ }"
+  },
+  "tables": {
+    "enabled": false,
+    "toolbar": {
+      "insertLabel": "Tbl",
+      "addRowLabel": "+L",
+      "addColumnLabel": "+C",
+      "deleteLabel": "Del Tbl"
+    },
+    "withHeaderRow": true,
+    "defaultRows": 3,
+    "defaultCols": 3,
+    "markdownExample": [
+      "| Coluna A | Coluna B |",
+      "| --- | --- |",
+      "| Valor 1 | Valor 2 |"
+    ]
+  }
+}
