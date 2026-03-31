@@ -2,6 +2,7 @@ const { body, validationResult } = require('express-validator');
 const authService = require('../services/authService');
 const loginProtectionService = require('../services/loginProtectionService');
 const config = require('../config');
+const { buildCookieOptions } = require('../utils/cookies');
 
 const loginValidators = [
   body('email').isEmail().withMessage('Informe um email válido.'),
@@ -17,14 +18,6 @@ const registerValidators = [
     .custom((value) => value === true)
     .withMessage('Você precisa aceitar os termos de uso e a política de privacidade.'),
 ];
-
-const buildCookieOptions = (maxAge) => ({
-  httpOnly: true,
-  secure: config.isProduction,
-  sameSite: 'lax',
-  path: '/',
-  maxAge,
-});
 
 const sendBlockedLoginResponse = (res, retryAfterSeconds) =>
   res.status(429).json({
@@ -78,8 +71,8 @@ async function login(req, res) {
 
   const { sessionToken, refreshToken, expiresAt } = result.session;
 
-  res.cookie(config.cookies.sessionName, sessionToken, buildCookieOptions(config.session.ttlMs));
-  res.cookie(config.cookies.refreshName, refreshToken, buildCookieOptions(config.session.refreshTtlMs));
+  res.cookie(config.cookies.sessionName, sessionToken, buildCookieOptions(req, { maxAge: config.session.ttlMs }));
+  res.cookie(config.cookies.refreshName, refreshToken, buildCookieOptions(req, { maxAge: config.session.refreshTtlMs }));
 
   return res.status(200).json({
     user: result.user,
@@ -94,8 +87,8 @@ async function logout(req, res) {
 
   await authService.logout(sessionToken);
 
-  res.clearCookie(config.cookies.sessionName, buildCookieOptions(0));
-  res.clearCookie(config.cookies.refreshName, buildCookieOptions(0));
+  res.clearCookie(config.cookies.sessionName, buildCookieOptions(req, { maxAge: 0 }));
+  res.clearCookie(config.cookies.refreshName, buildCookieOptions(req, { maxAge: 0 }));
 
   return res.status(204).send();
 }
@@ -121,20 +114,20 @@ async function refresh(req, res) {
   });
 
   if (!result) {
-    res.clearCookie(config.cookies.sessionName, buildCookieOptions(0));
-    res.clearCookie(config.cookies.refreshName, buildCookieOptions(0));
+    res.clearCookie(config.cookies.sessionName, buildCookieOptions(req, { maxAge: 0 }));
+    res.clearCookie(config.cookies.refreshName, buildCookieOptions(req, { maxAge: 0 }));
     return res.status(401).json({ message: 'Sessão expirada. Faça login novamente.' });
   }
 
   res.cookie(
     config.cookies.sessionName,
     result.session.sessionToken,
-    buildCookieOptions(config.session.ttlMs),
+    buildCookieOptions(req, { maxAge: config.session.ttlMs }),
   );
   res.cookie(
     config.cookies.refreshName,
     result.session.refreshToken,
-    buildCookieOptions(config.session.refreshTtlMs),
+    buildCookieOptions(req, { maxAge: config.session.refreshTtlMs }),
   );
 
   return res.status(200).json({
@@ -167,8 +160,8 @@ async function register(req, res) {
 async function deleteAccount(req, res, next) {
   try {
     await authService.deleteAccount(req.user.id);
-    res.clearCookie(config.cookies.sessionName, buildCookieOptions(0));
-    res.clearCookie(config.cookies.refreshName, buildCookieOptions(0));
+    res.clearCookie(config.cookies.sessionName, buildCookieOptions(req, { maxAge: 0 }));
+    res.clearCookie(config.cookies.refreshName, buildCookieOptions(req, { maxAge: 0 }));
     return res.status(200).json({ message: 'Conta excluída com sucesso.' });
   } catch (error) {
     return next(error);

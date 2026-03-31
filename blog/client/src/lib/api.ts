@@ -12,7 +12,29 @@ import type {
   UserProfile,
 } from "@/types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4010/api";
+function isLoopbackHost(hostname: string) {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
+function resolveApiBaseUrl() {
+  const configuredBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4010/api";
+
+  if (typeof window === "undefined") {
+    return configuredBaseUrl;
+  }
+
+  try {
+    const parsed = new URL(configuredBaseUrl, window.location.origin);
+    if (isLoopbackHost(parsed.hostname) && parsed.hostname !== window.location.hostname) {
+      parsed.hostname = window.location.hostname;
+    }
+    return parsed.toString().replace(/\/$/, "");
+  } catch {
+    return configuredBaseUrl;
+  }
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 const CSRF_COOKIE_NAME = process.env.NEXT_PUBLIC_CSRF_COOKIE_NAME ?? "backblog.csrf";
 const CSRF_SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const AUTH_RETRY_EXCLUDED_PATHS = new Set(["/admin/auth/login", "/admin/auth/refresh", "/admin/auth/logout"]);
@@ -64,17 +86,28 @@ async function executeFetch(path: string, options: FetchOptions, csrfToken?: str
   const { headers, body, ...rest } = options;
   const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
   const mergedHeaders = new Headers(headers);
+  const isAdminPath = path.startsWith("/admin/");
+  const method = String(rest.method || "GET").toUpperCase();
 
   if (!isFormData && !mergedHeaders.has("Content-Type")) {
     mergedHeaders.set("Content-Type", "application/json");
   }
 
-  if (!CSRF_SAFE_METHODS.has(String(rest.method || "GET").toUpperCase()) && csrfToken) {
+  if (!CSRF_SAFE_METHODS.has(method) && csrfToken) {
     mergedHeaders.set("X-CSRF-Token", csrfToken);
+  }
+
+  if (isAdminPath && method === "GET") {
+    mergedHeaders.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    mergedHeaders.set("Pragma", "no-cache");
+    mergedHeaders.set("Expires", "0");
+    mergedHeaders.delete("If-None-Match");
+    mergedHeaders.delete("If-Modified-Since");
   }
 
   return fetch(`${API_BASE_URL}${path}`, {
     credentials: "include",
+    cache: rest.cache ?? (isAdminPath ? "no-store" : undefined),
     headers: mergedHeaders,
     body,
     ...rest,
@@ -105,6 +138,17 @@ export async function apiFetch<T>(path: string, options: FetchOptions = {}): Pro
   const method = String(options.method || "GET").toUpperCase();
   const csrfToken = !CSRF_SAFE_METHODS.has(method) ? await ensureCsrfToken() : null;
   let response = await executeFetch(path, options, csrfToken);
+
+  if (response.status === 304) {
+    response = await executeFetch(
+      path,
+      {
+        ...options,
+        cache: "no-store",
+      },
+      csrfToken,
+    );
+  }
 
   if (response.status === 401 && !AUTH_RETRY_EXCLUDED_PATHS.has(path)) {
     const refreshed = await refreshSession();

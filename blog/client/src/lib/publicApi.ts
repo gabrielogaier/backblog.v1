@@ -1,4 +1,26 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4010/api";
+function isLoopbackHost(hostname: string) {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
+function resolveApiBaseUrl() {
+  const configuredBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4010/api";
+
+  if (typeof window === "undefined") {
+    return configuredBaseUrl;
+  }
+
+  try {
+    const parsed = new URL(configuredBaseUrl, window.location.origin);
+    if (isLoopbackHost(parsed.hostname) && parsed.hostname !== window.location.hostname) {
+      parsed.hostname = window.location.hostname;
+    }
+    return parsed.toString().replace(/\/$/, "");
+  } catch {
+    return configuredBaseUrl;
+  }
+}
+
+const BASE_URL = resolveApiBaseUrl();
 const CSRF_COOKIE_NAME = process.env.NEXT_PUBLIC_CSRF_COOKIE_NAME ?? "backblog.csrf";
 const CSRF_SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 

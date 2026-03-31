@@ -53,6 +53,7 @@ Definidas em `blog/.env` (base em `blog/.env.example`):
 - Banco: `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`, `PGSSLMODE`
 - Runtime/API: `NODE_ENV`, `HOST`, `PORT`, `API_PREFIX`, `CORS_ORIGIN`
 - Sessão/cookies: `SESSION_EXPIRATION_HOURS`, `REFRESH_TOKEN_DAYS`, `SESSION_COOKIE_NAME`, `REFRESH_COOKIE_NAME`
+- Política de cookies: `COOKIE_SAME_SITE` (`strict|lax|none`) e `COOKIE_SECURE` (`true|false|auto`)
 - CSRF: `CSRF_COOKIE_NAME`, `CSRF_COOKIE_MAX_AGE_MS`, `CSRF_ENFORCE_ORIGIN`
 - Segurança auth:
   - `AUTH_LOGIN_RATE_LIMIT_WINDOW_MS`, `AUTH_LOGIN_RATE_LIMIT_MAX`

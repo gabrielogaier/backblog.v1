@@ -33,6 +33,23 @@ const parseCsv = (value, fallback) => {
   return parsed.length ? parsed : fallback;
 };
 
+const parseOptionalBoolean = (value) => {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'true') return true;
+  if (normalized === 'false') return false;
+  return undefined;
+};
+
+const parseSameSite = (value) => {
+  if (typeof value !== 'string') return 'lax';
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'strict' || normalized === 'lax' || normalized === 'none') {
+    return normalized;
+  }
+  return 'lax';
+};
+
 const config = {
   env: process.env.NODE_ENV || 'development',
   port: numberFromEnv(process.env.PORT, 4010),
@@ -43,6 +60,8 @@ const config = {
   cookies: {
     sessionName: process.env.SESSION_COOKIE_NAME || 'backblog.sid',
     refreshName: process.env.REFRESH_COOKIE_NAME || 'backblog.refresh',
+    sameSite: parseSameSite(process.env.COOKIE_SAME_SITE),
+    secure: parseOptionalBoolean(process.env.COOKIE_SECURE),
   },
   csrf: {
     cookieName: process.env.CSRF_COOKIE_NAME || 'backblog.csrf',

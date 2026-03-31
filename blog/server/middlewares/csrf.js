@@ -1,18 +1,9 @@
 const crypto = require('crypto');
 const config = require('../config');
+const { buildCookieOptions } = require('../utils/cookies');
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const CSRF_TOKEN_PATTERN = /^[a-f0-9]{64}$/i;
-
-function buildCookieOptions() {
-  return {
-    httpOnly: false,
-    secure: config.isProduction,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: config.csrf.cookieMaxAgeMs,
-  };
-}
 
 function generateCsrfToken() {
   return crypto.randomBytes(32).toString('hex');
@@ -73,7 +64,11 @@ function extractRequestToken(req) {
 function ensureCsrfCookie(req, res, next) {
   const currentToken = req.cookies?.[config.csrf.cookieName];
   if (!CSRF_TOKEN_PATTERN.test(currentToken || '')) {
-    res.cookie(config.csrf.cookieName, generateCsrfToken(), buildCookieOptions());
+    res.cookie(
+      config.csrf.cookieName,
+      generateCsrfToken(),
+      buildCookieOptions(req, { maxAge: config.csrf.cookieMaxAgeMs, httpOnly: false }),
+    );
   }
   next();
 }
@@ -87,7 +82,11 @@ function issueCsrfToken(req, res) {
   }
 
   const generatedToken = generateCsrfToken();
-  res.cookie(config.csrf.cookieName, generatedToken, buildCookieOptions());
+  res.cookie(
+    config.csrf.cookieName,
+    generatedToken,
+    buildCookieOptions(req, { maxAge: config.csrf.cookieMaxAgeMs, httpOnly: false }),
+  );
   return res.status(200).json({ csrfToken: generatedToken });
 }
 

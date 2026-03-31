@@ -11,6 +11,43 @@ require('./db'); // garante que o pool seja inicializado.
 const app = express();
 
 app.set('trust proxy', 1);
+app.set('etag', config.isProduction ? 'weak' : false);
+
+function normalizeOrigin(origin) {
+  return String(origin || '').trim().replace(/\/+$/, '');
+}
+
+function isPrivateIpv4(hostname) {
+  if (/^10\./.test(hostname)) return true;
+  if (/^192\.168\./.test(hostname)) return true;
+  const match = hostname.match(/^172\.(\d{1,2})\./);
+  if (!match) return false;
+  const secondOctet = Number(match[1]);
+  return secondOctet >= 16 && secondOctet <= 31;
+}
+
+function isDevelopmentOriginAllowed(origin) {
+  try {
+    const parsed = new URL(origin);
+    const protocolAllowed = parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    if (!protocolAllowed) return false;
+    const hostname = parsed.hostname.toLowerCase();
+    return (
+      hostname === 'localhost'
+      || hostname === '127.0.0.1'
+      || hostname === '::1'
+      || isPrivateIpv4(hostname)
+    );
+  } catch {
+    return false;
+  }
+}
+
+const configuredCorsOrigins = new Set(
+  (Array.isArray(config.cors.origin) ? config.cors.origin : [config.cors.origin])
+    .map(normalizeOrigin)
+    .filter(Boolean),
+);
 
 app.use(
   helmet({
@@ -20,7 +57,22 @@ app.use(
 app.use(compression());
 app.use(
   cors({
-    origin: config.cors.origin,
+    origin(origin, callback) {
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      const normalizedOrigin = normalizeOrigin(origin);
+      if (configuredCorsOrigins.has(normalizedOrigin)) {
+        return callback(null, true);
+      }
+
+      if (!config.isProduction && isDevelopmentOriginAllowed(normalizedOrigin)) {
+        return callback(null, true);
+      }
+
+      return callback(null, false);
+    },
     credentials: true,
   }),
 );

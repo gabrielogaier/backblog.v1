@@ -48,8 +48,8 @@ export function AuthProvider({
     } finally {
       if (refreshAbortRef.current === controller) {
         refreshAbortRef.current = null;
+        setLoading(false);
       }
-      setLoading(false);
     }
   }, []);
 
