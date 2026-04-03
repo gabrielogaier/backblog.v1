@@ -24,6 +24,12 @@ export default function PublicHeader() {
               Sign up
             </Link>
             <Link
+              className="rounded-full border border-slate-800 px-4 py-2 text-sm font-semibold text-slate-100 hover:border-emerald-400"
+              href="/sobre"
+            >
+              Sobre
+            </Link>
+            <Link
               className="rounded-full border border-emerald-500/40 px-4 py-2 text-sm font-semibold text-emerald-300 hover:border-emerald-300"
               href="/doar"
             >
@@ -64,6 +70,13 @@ export default function PublicHeader() {
               onClick={() => setMenuOpen(false)}
             >
               Sign up
+            </Link>
+            <Link
+              className="rounded-2xl border border-slate-800 px-4 py-2 text-sm font-semibold text-slate-100 hover:border-emerald-400"
+              href="/sobre"
+              onClick={() => setMenuOpen(false)}
+            >
+              Sobre
             </Link>
             <Link
               className="rounded-2xl border border-emerald-500/40 px-4 py-2 text-sm font-semibold text-emerald-300 hover:border-emerald-300"

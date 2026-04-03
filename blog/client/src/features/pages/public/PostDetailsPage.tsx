@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { HtmlContentWithCopy } from "@/components/HtmlContentWithCopy";
+import { formatDateBR } from "@/lib/dateTime";
 import { getBlogSettings, getPublishedPost } from "@/lib/publicApi";
 import { sanitizeRichHtml } from "@/lib/sanitizeRichHtml";
 
@@ -61,7 +62,7 @@ export default async function PostDetailsPage({ params }: { params: Promise<Post
   const codeNumber = theme.codeNumber || defaultTheme.codeNumber;
   const codeComment = theme.codeComment || defaultTheme.codeComment;
   const codeFunction = theme.codeFunction || defaultTheme.codeFunction;
-  const fallbackContactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim() || "contato@backblog.dev";
+  const fallbackContactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim() || "contato@backblog.com.br";
 
   const htmlContent = sanitizeRichHtml(post.contentFinal ?? post.contentRaw ?? "");
 
@@ -75,7 +76,7 @@ export default async function PostDetailsPage({ params }: { params: Promise<Post
           <h1 className="text-4xl font-semibold text-white">{post.title}</h1>
           <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
             <span>
-              {post.publishedAt ? new Date(post.publishedAt).toLocaleDateString("pt-BR") : "Data indefinida"}
+              {post.publishedAt ? formatDateBR(post.publishedAt) : "Data indefinida"}
             </span>
             <span>·</span>
             <span>{post.readingTimeMin ? `${post.readingTimeMin} min de leitura` : "Tempo estimado indisponível"}</span>

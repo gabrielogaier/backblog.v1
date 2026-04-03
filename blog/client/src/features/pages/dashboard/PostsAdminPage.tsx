@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { formatDateTimeBR } from "@/lib/dateTime";
 import type { Post } from "@/types";
 
 type PostsResponse = {
@@ -102,7 +103,7 @@ export default function PostsAdminPage() {
                       {post.title}
                     </Link>
                     <p className="text-xs text-slate-500">
-                      {post.updatedAt ? new Date(post.updatedAt).toLocaleString("pt-BR") : "Sem data"}
+                      {post.updatedAt ? formatDateTimeBR(post.updatedAt) : "Sem data"}
                     </p>
                     <p className="text-sm text-slate-300">{post.excerpt ?? "Sem resumo ainda."}</p>
                   </div>

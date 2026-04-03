@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  AiUsage,
   BlogSettings,
   Conversation,
   ConversationMessage,
@@ -74,10 +75,21 @@ async function ensureCsrfToken(): Promise<string | null> {
   const existing = readCookie(CSRF_COOKIE_NAME);
   if (existing) return existing;
 
-  await fetch(`${API_BASE_URL}/csrf-token`, {
+  const response = await fetch(`${API_BASE_URL}/csrf-token`, {
     method: "GET",
     credentials: "include",
   }).catch(() => undefined);
+
+  if (response?.ok) {
+    try {
+      const data = (await response.json()) as { csrfToken?: string };
+      if (typeof data?.csrfToken === "string" && data.csrfToken.trim()) {
+        return data.csrfToken.trim();
+      }
+    } catch {
+      // ignora falha de parse e tenta fallback via cookie
+    }
+  }
 
   return readCookie(CSRF_COOKIE_NAME);
 }
@@ -174,7 +186,7 @@ export async function apiFetch<T>(path: string, options: FetchOptions = {}): Pro
 
 export const api = {
   login: (email: string, password: string) =>
-    apiFetch<{ user: User; session: { expiresAt: string } }>("/admin/auth/login", {
+    apiFetch<{ user: User; session: { expiresAt: string }; aiUsage?: AiUsage | null }>("/admin/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
@@ -182,7 +194,8 @@ export const api = {
     apiFetch<void>("/admin/auth/logout", {
       method: "POST",
     }),
-  me: (options?: FetchOptions) => apiFetch<{ user: User }>("/admin/auth/me", options),
+  me: (options?: FetchOptions) =>
+    apiFetch<{ user: User; session?: { expiresAt: string }; aiUsage?: AiUsage | null }>("/admin/auth/me", options),
   posts: () => apiFetch<{ data: Post[] }>("/admin/posts"),
   createPost: (payload: Partial<Post> & { title: string }) =>
     apiFetch<Post>("/admin/posts", {
@@ -212,7 +225,7 @@ export const api = {
     conversationId: string,
     payload: { content: string; draft?: string; instructionId?: number },
   ) =>
-    apiFetch<{ userMessage: ConversationMessage; aiMessage: ConversationMessage }>(
+    apiFetch<{ userMessage: ConversationMessage; aiMessage: ConversationMessage; aiUsage?: AiUsage | null }>(
       `/admin/posts/${postId}/conversations/${conversationId}/messages`,
       {
         method: "POST",

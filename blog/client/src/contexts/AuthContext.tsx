@@ -3,12 +3,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
-import type { User } from "@/types";
+import type { AiUsage, User } from "@/types";
 
 type AuthContextValue = {
   user: User | null;
+  aiUsage: AiUsage | null;
   loading: boolean;
   refresh: () => Promise<void>;
+  updateAiUsage: (nextUsage: AiUsage | null) => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 };
@@ -23,6 +25,7 @@ export function AuthProvider({
   bootstrapSession?: boolean;
 }) {
   const [user, setUser] = useState<User | null>(null);
+  const [aiUsage, setAiUsage] = useState<AiUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const refreshAbortRef = useRef<AbortController | null>(null);
@@ -41,9 +44,11 @@ export function AuthProvider({
     try {
       const data = await api.me({ signal: controller.signal });
       setUser(data.user);
+      setAiUsage(data.aiUsage ?? null);
     } catch {
       if (!controller.signal.aborted) {
         setUser(null);
+        setAiUsage(null);
       }
     } finally {
       if (refreshAbortRef.current === controller) {
@@ -68,13 +73,18 @@ export function AuthProvider({
     };
   }, []);
 
+  const updateAiUsage = useCallback((nextUsage: AiUsage | null) => {
+    setAiUsage(nextUsage);
+  }, []);
+
   const login = useCallback(
     async (email: string, password: string) => {
-      await api.login(email, password);
+      const loginResult = await api.login(email, password);
+      setAiUsage(loginResult.aiUsage ?? null);
       await refresh();
       router.push("/admin");
     },
-    [refresh, router],
+    [refresh, router, setAiUsage],
   );
 
   const logout = useCallback(async () => {
@@ -85,6 +95,7 @@ export function AuthProvider({
       await api.logout();
     } finally {
       setUser(null);
+      setAiUsage(null);
       setLoading(false);
       router.push("/login");
       logoutInProgressRef.current = false;
@@ -94,12 +105,14 @@ export function AuthProvider({
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
+      aiUsage,
       loading,
       refresh,
+      updateAiUsage,
       login,
       logout,
     }),
-    [user, loading, refresh, login, logout],
+    [user, aiUsage, loading, refresh, updateAiUsage, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -111,4 +124,8 @@ export function useAuth() {
     throw new Error("useAuth deve ser usado dentro de AuthProvider");
   }
   return ctx;
+}
+
+export function useAuthOptional() {
+  return useContext(AuthContext);
 }

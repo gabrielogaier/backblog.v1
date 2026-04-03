@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { formatDateBR } from "@/lib/dateTime";
 import {
   createPostComment,
   getPostEngagement,
@@ -38,10 +39,7 @@ function createEmptyEngagement(limit = COMMENT_LIMIT): PublicPostEngagement {
 }
 
 function formatCommentDate(value?: string | null) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+  return formatDateBR(value, { day: "2-digit", month: "short", year: "numeric" });
 }
 
 function generateVisitorId() {

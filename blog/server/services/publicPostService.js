@@ -4,6 +4,8 @@ const mapPost = (row) => ({
   id: row.id,
   title: row.title,
   slug: row.slug,
+  blogName: row.blog_name || 'Backblog',
+  authorSlug: row.author_slug || null,
   excerpt: row.excerpt,
   contentRaw: row.content_raw,
   contentFinal: row.content_final,
@@ -21,6 +23,8 @@ const mapPost = (row) => ({
 const baseSelect = `
 SELECT
   p.*,
+  COALESCE(MAX(bs.blog_name), 'Backblog') AS blog_name,
+  MAX(up.slug) AS author_slug,
   COALESCE(
     json_agg(
       DISTINCT jsonb_build_object('id', t.id, 'name', t.name, 'slug', t.slug)
@@ -28,6 +32,8 @@ SELECT
     '[]'
   ) AS tags
 FROM posts p
+LEFT JOIN blog_settings bs ON bs.user_id = p.author_id
+LEFT JOIN user_profiles up ON up.user_id = p.author_id
 LEFT JOIN post_tags pt ON pt.post_id = p.id
 LEFT JOIN tags t ON t.id = pt.tag_id
 `;

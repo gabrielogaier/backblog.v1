@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { notFound, useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { formatDateTimeBR } from "@/lib/dateTime";
 import { RichTextEditor } from "@/components/RichTextEditor";
+import { useAuth } from "@/contexts/AuthContext";
 import markdownProfile from "@/config/markdownProfile.json";
-import type { Conversation, ConversationMessage, Post, PostRevision } from "@/types";
+import type { AiUsage, Conversation, ConversationMessage, Post } from "@/types";
 
 type PostResponse = Post;
 type ConversationsResponse = { data: Conversation[] };
@@ -242,8 +244,10 @@ export default function PostEditorPage() {
   const params = useParams<{ postId: string }>();
   const postId = params.postId;
   const router = useRouter();
+  const { updateAiUsage } = useAuth();
 
   const [post, setPost] = useState<PostResponse | null>(null);
+  const [aiUsage, setAiUsage] = useState<AiUsage | null>(null);
   const [title, setTitle] = useState("");
   const [editorContent, setEditorContent] = useState("");
 
@@ -252,11 +256,6 @@ export default function PostEditorPage() {
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [messageInput, setMessageInput] = useState("");
 
-  const [revisions, setRevisions] = useState<PostRevision[]>([]);
-  const [revisionsLoading, setRevisionsLoading] = useState(false);
-  const [revisionActionId, setRevisionActionId] = useState<string | null>(null);
-  const [revisionError, setRevisionError] = useState<string | null>(null);
-
   const [loading, setLoading] = useState(true);
   const [savingDraft, setSavingDraft] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -264,19 +263,6 @@ export default function PostEditorPage() {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
-
-  const loadRevisions = useCallback(async () => {
-    setRevisionsLoading(true);
-    setRevisionError(null);
-    try {
-      const response = await api.listRevisions(postId);
-      setRevisions(response.data);
-    } catch (err) {
-      setRevisionError(err instanceof Error ? err.message : "Falha ao carregar revisões.");
-    } finally {
-      setRevisionsLoading(false);
-    }
-  }, [postId]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -289,6 +275,8 @@ export default function PostEditorPage() {
         ]);
 
         setPost(postResponse);
+        setAiUsage(postResponse.aiUsage ?? null);
+        updateAiUsage(postResponse.aiUsage ?? null);
         setTitle(postResponse.title);
         setEditorContent(postResponse.contentRaw || postResponse.contentFinal || "");
         setConversations(conversationsResponse.data);
@@ -296,8 +284,6 @@ export default function PostEditorPage() {
         if (conversationsResponse.data.length > 0) {
           setSelectedConversation(conversationsResponse.data[0].id);
         }
-
-        await loadRevisions();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Falha ao carregar o post.");
       } finally {
@@ -306,7 +292,7 @@ export default function PostEditorPage() {
     };
 
     fetchData();
-  }, [postId, loadRevisions]);
+  }, [postId, updateAiUsage]);
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -438,6 +424,12 @@ export default function PostEditorPage() {
   const handleSend = async () => {
     const trimmedMessage = messageInput.trim();
     if (!trimmedMessage) return;
+    if (aiUsage && aiUsage.reachedLimit) {
+      setError(
+        `Limite diário da IA atingido (${aiUsage.requestCount}/${aiUsage.limit}). Tente novamente amanhã.`,
+      );
+      return;
+    }
 
     setSending(true);
     setError(null);
@@ -459,6 +451,10 @@ export default function PostEditorPage() {
 
       const response = await api.sendConversationMessage(postId, conversationId, payload);
       setMessages((prev) => dedupeMessages([...prev, response.userMessage, response.aiMessage]));
+      if (response.aiUsage) {
+        setAiUsage(response.aiUsage);
+        updateAiUsage(response.aiUsage);
+      }
       setMessageInput("");
       setConversations((prev) =>
         prev.map((conv) =>
@@ -469,25 +465,6 @@ export default function PostEditorPage() {
       setError(err instanceof Error ? err.message : "Erro ao enviar a mensagem.");
     } finally {
       setSending(false);
-    }
-  };
-
-  const handleApplyRevision = async (revisionId: string) => {
-    if (!post) return;
-    const revision = revisions.find((rev) => String(rev.id) === String(revisionId));
-    if (!revision) return;
-
-    setRevisionActionId(revisionId);
-    setRevisionError(null);
-    try {
-      const revisionHtml = markdownToHtml(revision.content);
-      await updatePost({
-        contentFinal: revisionHtml,
-      });
-    } catch (err) {
-      setRevisionError(err instanceof Error ? err.message : "Não foi possível aplicar a revisão.");
-    } finally {
-      setRevisionActionId(null);
     }
   };
 
@@ -505,6 +482,7 @@ export default function PostEditorPage() {
     () => conversations.find((conversation) => conversation.id === selectedConversation),
     [conversations, selectedConversation],
   );
+  const aiLimitReached = Boolean(aiUsage?.reachedLimit);
 
   if (!loading && !post) {
     notFound();
@@ -526,7 +504,7 @@ export default function PostEditorPage() {
               </span>
             </div>
             <p className="text-sm text-slate-400">
-              Última edição em {new Date(post.updatedAt).toLocaleString("pt-BR")}
+              Última edição em {formatDateTimeBR(post.updatedAt)}
             </p>
             {post.contentFinal && (
               <p className="mt-2 text-xs text-slate-500">
@@ -588,68 +566,20 @@ export default function PostEditorPage() {
             </p>
           </section>
 
-          <section className="space-y-4 rounded-3xl border border-slate-900 bg-slate-900/60 p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Revisões</p>
-                <p className="text-sm text-slate-300">Histórico de versões humanas e IA</p>
-              </div>
-              <button
-                onClick={loadRevisions}
-                className="rounded-full border border-slate-800 px-3 py-1 text-xs font-semibold text-slate-200"
-              >
-                Atualizar
-              </button>
-            </div>
-            {revisionError && <p className="text-sm text-rose-300">{revisionError}</p>}
-            {revisionsLoading && <p className="text-sm text-slate-400">Carregando revisões...</p>}
-            {!revisionsLoading && !revisions.length && (
-              <p className="text-sm text-slate-500">Ainda não há revisões para este post.</p>
-            )}
-
-            <div className="space-y-3">
-              {revisions.map((revision) => (
-                <div
-                  key={`${revision.id}-${revision.createdAt}-${revision.source}`}
-                  className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-white">
-                        {revision.source === "ai" ? "Gerada pela IA" : "Humano"}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {new Date(revision.createdAt).toLocaleString("pt-BR")}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setEditorContent(markdownToHtml(revision.content))}
-                        className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200"
-                      >
-                        Carregar no editor
-                      </button>
-                      <button
-                        onClick={() => handleApplyRevision(String(revision.id))}
-                        disabled={revisionActionId === String(revision.id)}
-                        className="rounded-full bg-emerald-400 px-3 py-1 text-xs font-semibold text-slate-950 disabled:opacity-50"
-                      >
-                        {revisionActionId === String(revision.id) ? "Aplicando..." : "Aplicar ao final"}
-                      </button>
-                    </div>
-                  </div>
-                  {revision.notes && <p className="mt-2 text-xs text-slate-400">Notas: {revision.notes}</p>}
-                </div>
-              ))}
-            </div>
-          </section>
-
           <section className="rounded-3xl border border-slate-900 bg-slate-900/60 p-5">
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Conversa com IA</p>
                 <p className="text-sm text-slate-300">{activeConversation ? activeConversation.title : "Nenhuma conversa ativa"}</p>
               </div>
+              {aiUsage && (
+                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 px-3 py-2 text-right">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">limite diário</p>
+                  <p className="text-sm font-semibold text-emerald-300">
+                    {aiUsage.remaining} de {aiUsage.limit}
+                  </p>
+                </div>
+              )}
               <button
                 onClick={handleCreateConversation}
                 className="rounded-full border border-slate-800 px-3 py-1 text-xs font-semibold text-slate-200"
@@ -703,11 +633,16 @@ export default function PostEditorPage() {
               />
               <button
                 onClick={handleSend}
-                disabled={sending}
+                disabled={sending || aiLimitReached}
                 className="rounded-2xl bg-emerald-400 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-400/30 disabled:opacity-50"
               >
-                {sending ? "Gerando..." : "Enviar para IA"}
+                {sending ? "Gerando..." : aiLimitReached ? "Limite diário atingido" : "Enviar para IA"}
               </button>
+              {aiLimitReached && aiUsage && (
+                <p className="text-xs text-slate-400">
+                  Você usou {aiUsage.requestCount} de {aiUsage.limit} hoje.
+                </p>
+              )}
             </div>
           </section>
         </>

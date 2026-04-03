@@ -104,6 +104,7 @@ async function create(req, res, next) {
     return res.status(201).json({
       userMessage,
       aiMessage: assistantMessage,
+      aiUsage: aiResponse.aiUsage || null,
     });
   } catch (error) {
     return next(error);

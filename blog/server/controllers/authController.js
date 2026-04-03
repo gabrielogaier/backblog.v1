@@ -1,5 +1,6 @@
 const { body, validationResult } = require('express-validator');
 const authService = require('../services/authService');
+const aiUsageService = require('../services/aiUsageService');
 const loginProtectionService = require('../services/loginProtectionService');
 const config = require('../config');
 const { buildCookieOptions } = require('../utils/cookies');
@@ -70,6 +71,7 @@ async function login(req, res) {
   });
 
   const { sessionToken, refreshToken, expiresAt } = result.session;
+  const aiUsage = await aiUsageService.getAiUsage(result.user.id);
 
   res.cookie(config.cookies.sessionName, sessionToken, buildCookieOptions(req, { maxAge: config.session.ttlMs }));
   res.cookie(config.cookies.refreshName, refreshToken, buildCookieOptions(req, { maxAge: config.session.refreshTtlMs }));
@@ -79,6 +81,7 @@ async function login(req, res) {
     session: {
       expiresAt: expiresAt.toISOString(),
     },
+    aiUsage,
   });
 }
 
@@ -94,11 +97,13 @@ async function logout(req, res) {
 }
 
 async function me(req, res) {
+  const aiUsage = await aiUsageService.getAiUsage(req.user.id);
   return res.status(200).json({
     user: req.user,
     session: {
       expiresAt: req.session.expiresAt.toISOString(),
     },
+    aiUsage,
   });
 }
 
@@ -135,6 +140,7 @@ async function refresh(req, res) {
     session: {
       expiresAt: result.session.expiresAt.toISOString(),
     },
+    aiUsage: await aiUsageService.getAiUsage(result.user.id),
   });
 }
 

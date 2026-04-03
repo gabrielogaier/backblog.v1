@@ -3,6 +3,7 @@ const slugify = require('../utils/slugify');
 const { sanitizePlainText, sanitizeRichHtml } = require('../utils/inputSanitizer');
 
 const MAX_LIMIT = 50;
+const BRAZIL_TIME_ZONE = 'America/Sao_Paulo';
 
 const mapPost = (row) => ({
   id: row.id,
@@ -40,17 +41,32 @@ LEFT JOIN tags t ON t.id = pt.tag_id
 
 const buildExcerpt = (content) => (content || '').replace(/\s+/g, ' ').trim().slice(0, 280);
 
+const getDatePartsInTimeZone = (date, timeZone) => {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = formatter.formatToParts(date);
+  const year = Number(parts.find((part) => part.type === 'year')?.value);
+  const month = Number(parts.find((part) => part.type === 'month')?.value);
+  const day = Number(parts.find((part) => part.type === 'day')?.value);
+  return { year, month, day };
+};
+
 const buildPublishMeta = (status, publishedAtInput) => {
   if (status === 'published') {
     const publishedAt = publishedAtInput ? new Date(publishedAtInput) : new Date();
     if (Number.isNaN(publishedAt.getTime())) {
       throw new Error('Data de publicação inválida.');
     }
+    const parts = getDatePartsInTimeZone(publishedAt, BRAZIL_TIME_ZONE);
     return {
       publishedAt,
-      year: publishedAt.getUTCFullYear(),
-      month: publishedAt.getUTCMonth() + 1,
-      day: publishedAt.getUTCDate(),
+      year: parts.year,
+      month: parts.month,
+      day: parts.day,
     };
   }
 

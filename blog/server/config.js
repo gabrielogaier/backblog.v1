@@ -93,6 +93,7 @@ const config = {
       ? Number(process.env.OPENAI_TEMPERATURE)
       : 0.7,
     maxTokens: numberFromEnv(process.env.OPENAI_MAX_TOKENS, 1200),
+    dailyLimitDefault: positiveNumberFromEnv(process.env.OPENAI_DAILY_LIMIT_DEFAULT, 20),
   },
   security: {
     rateLimit: {

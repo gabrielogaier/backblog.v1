@@ -1,6 +1,7 @@
 const OpenAI = require('openai');
 const config = require('../config');
-const { query } = require('../db');
+const { pool, query } = require('../db');
+const aiUsageService = require('./aiUsageService');
 const markdownProfile = require('../../client/src/config/markdownProfile.json');
 
 const configuredHeadingLevels = (markdownProfile.headings?.allowedLevels || [2, 3])
@@ -66,6 +67,34 @@ const openaiClient = config.openai.apiKey
       apiKey: config.openai.apiKey,
     })
   : null;
+
+function isOpenAiQuotaOrBillingError(error) {
+  const rawCode = typeof error?.code === 'string' ? error.code : '';
+  const normalizedCode = rawCode.toLowerCase();
+  const nestedType = typeof error?.error?.type === 'string' ? error.error.type.toLowerCase() : '';
+  const nestedCode = typeof error?.error?.code === 'string' ? error.error.code.toLowerCase() : '';
+
+  return (
+    normalizedCode === 'insufficient_quota'
+    || normalizedCode === 'billing_hard_limit_reached'
+    || nestedType === 'insufficient_quota'
+    || nestedCode === 'insufficient_quota'
+    || nestedCode === 'billing_hard_limit_reached'
+  );
+}
+
+function normalizeOpenAiProviderError(error) {
+  if (!isOpenAiQuotaOrBillingError(error)) {
+    return error;
+  }
+
+  const normalized = new Error(
+    'A cota da OpenAI da plataforma foi atingida no momento. Tente novamente mais tarde.',
+  );
+  normalized.statusCode = 503;
+  normalized.code = 'OPENAI_PLATFORM_QUOTA';
+  return normalized;
+}
 
 async function fetchInstructionById(id, ownerId) {
   if (!id) {
@@ -153,8 +182,15 @@ async function generatePostRevision({ post, draft, requestedInstructionId, notes
   });
 
   const startedAt = Date.now();
+  const client = await pool.connect();
+  let transactionStarted = false;
 
   try {
+    await client.query('BEGIN');
+    transactionStarted = true;
+    await aiUsageService.lockUserUsage(client, ownerId);
+    await aiUsageService.assertCanUseAi(client, ownerId);
+
     const completion = await openaiClient.chat.completions.create({
       model: config.openai.model,
       temperature: config.openai.temperature,
@@ -171,14 +207,14 @@ async function generatePostRevision({ post, draft, requestedInstructionId, notes
     }
     const normalizedGeneratedText = normalizeMarkdownToEditor(generatedText);
 
-    const revision = await query(
+    const revision = await client.query(
       `INSERT INTO post_revisions (post_id, source, content, notes)
        VALUES ($1, 'ai', $2, $3)
        RETURNING id, created_at`,
       [post.id, normalizedGeneratedText, notes || null],
     );
 
-    await query(
+    await client.query(
       `INSERT INTO ai_generation_logs (
           post_id, instruction_id, model, prompt_tokens,
           completion_tokens, cost_usd, latency_ms, status
@@ -194,12 +230,21 @@ async function generatePostRevision({ post, draft, requestedInstructionId, notes
       ],
     );
 
+    const aiUsage = await aiUsageService.incrementUsage(client, ownerId);
+    await client.query('COMMIT');
+    transactionStarted = false;
+
     return {
       content: normalizedGeneratedText,
       revisionId: revision.rows[0].id,
       createdAt: revision.rows[0].created_at.toISOString(),
+      aiUsage,
     };
   } catch (error) {
+    if (transactionStarted) {
+      await client.query('ROLLBACK').catch(() => undefined);
+    }
+
     await query(
       `INSERT INTO ai_generation_logs (
           post_id, instruction_id, model, prompt_tokens,
@@ -215,7 +260,9 @@ async function generatePostRevision({ post, draft, requestedInstructionId, notes
         Date.now() - startedAt,
       ],
     );
-    throw error;
+    throw normalizeOpenAiProviderError(error);
+  } finally {
+    client.release();
   }
 }
 
@@ -309,8 +356,15 @@ async function continueConversation({
   const history = mapConversationMessagesToOpenAI(messages);
 
   const startedAt = Date.now();
+  const client = await pool.connect();
+  let transactionStarted = false;
 
   try {
+    await client.query('BEGIN');
+    transactionStarted = true;
+    await aiUsageService.lockUserUsage(client, ownerId);
+    await aiUsageService.assertCanUseAi(client, ownerId);
+
     const completion = await openaiClient.chat.completions.create({
       model: config.openai.model,
       temperature: config.openai.temperature,
@@ -328,7 +382,7 @@ async function continueConversation({
     }
     const normalizedGeneratedText = normalizeMarkdownToEditor(generatedText);
 
-    await query(
+    await client.query(
       `INSERT INTO ai_generation_logs (
           post_id, conversation_id, instruction_id, model, prompt_tokens,
           completion_tokens, cost_usd, latency_ms, status
@@ -345,11 +399,20 @@ async function continueConversation({
       ],
     );
 
+    const aiUsage = await aiUsageService.incrementUsage(client, ownerId);
+    await client.query('COMMIT');
+    transactionStarted = false;
+
     return {
       content: normalizedGeneratedText,
       usage: completion.usage || null,
+      aiUsage,
     };
   } catch (error) {
+    if (transactionStarted) {
+      await client.query('ROLLBACK').catch(() => undefined);
+    }
+
     await query(
       `INSERT INTO ai_generation_logs (
           post_id, conversation_id, instruction_id, model, prompt_tokens,
@@ -366,7 +429,9 @@ async function continueConversation({
         Date.now() - startedAt,
       ],
     );
-    throw error;
+    throw normalizeOpenAiProviderError(error);
+  } finally {
+    client.release();
   }
 }
 

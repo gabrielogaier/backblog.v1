@@ -73,7 +73,7 @@ Definidas em `blog/.env` (base em `blog/.env.example`):
   - `STORAGE_PUBLIC_ROOT`
   - `STORAGE_PRIVATE_ROOT`
 - Seed admin: `ADMIN_EMAIL`, `ADMIN_PASSWORD`
-- OpenAI: `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_MAX_TOKENS`, `OPENAI_TEMPERATURE`
+- OpenAI: `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_MAX_TOKENS`, `OPENAI_TEMPERATURE`, `OPENAI_DAILY_LIMIT_DEFAULT`
 
 ## Headers no reverso (produção)
 

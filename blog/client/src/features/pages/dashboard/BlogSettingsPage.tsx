@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { formatDateTimeBR } from "@/lib/dateTime";
 import type { BlogSettings } from "@/types";
 import { BlogPreview } from "@/components/BlogPreview";
 import { useAuth } from "@/contexts/AuthContext";
@@ -454,7 +455,7 @@ export default function BlogSettingsPage() {
       <section className="rounded-3xl border border-slate-900 bg-slate-900/40 p-5">
         <div className="mb-4 flex items-center justify-between text-sm text-slate-400">
           <p>Preview público</p>
-          <span>{new Date(livePreviewSettings.updatedAt ?? Date.now()).toLocaleString("pt-BR")}</span>
+          <span>{formatDateTimeBR(livePreviewSettings.updatedAt ?? Date.now())}</span>
         </div>
         <BlogPreview settings={livePreviewSettings} />
       </section>

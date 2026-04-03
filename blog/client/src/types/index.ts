@@ -5,6 +5,14 @@ export type User = {
   role: string;
 };
 
+export type AiUsage = {
+  usageDate: string;
+  limit: number;
+  requestCount: number;
+  remaining: number;
+  reachedLimit: boolean;
+};
+
 export type Post = {
   id: string;
   title: string;
@@ -16,6 +24,7 @@ export type Post = {
   updatedAt: string;
   createdAt?: string;
   publishedAt?: string | null;
+  aiUsage?: AiUsage | null;
 };
 
 export type Conversation = {

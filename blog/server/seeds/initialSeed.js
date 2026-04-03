@@ -16,6 +16,11 @@ const DEFAULT_INSTRUCTION = {
   priorityKeywords: ['ia', 'produtividade', 'reflexões'],
 };
 
+const parsePositiveInteger = (value, fallback) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+};
+
 async function ensureAdminUser(client) {
   const { ADMIN_EMAIL, ADMIN_PASSWORD } = process.env;
 
@@ -42,10 +47,16 @@ async function ensureAdminUser(client) {
   }
 
   const inserted = await client.query(
-    `INSERT INTO users (email, password_hash, name, role)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO users (email, password_hash, name, role, ai_daily_limit)
+     VALUES ($1, $2, $3, $4, $5)
      RETURNING id`,
-    [ADMIN_EMAIL, passwordHash, 'Administrador', 'admin'],
+    [
+      ADMIN_EMAIL,
+      passwordHash,
+      'Administrador',
+      'admin',
+      parsePositiveInteger(process.env.OPENAI_DAILY_LIMIT_DEFAULT, 20),
+    ],
   );
   return inserted.rows[0].id;
 }

@@ -15,7 +15,10 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Backblog | Admin",
+  title: {
+    default: "Backblog",
+    template: "%s | Backblog",
+  },
   description: "CMS pessoal otimizado para mobile com suporte a IA.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   icons: [

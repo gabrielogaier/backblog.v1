@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import { listPublishedPosts, getBlogSettings } from "@/lib/publicApi";
+import { formatDateBR } from "@/lib/dateTime";
 import { notFound } from "next/navigation";
 
 const MONTH_LABELS = [
@@ -58,20 +59,25 @@ export default async function PostsMonthlyArchivePage({ params }: { params: Prom
         </header>
 
         <section className="space-y-4">
-          {posts.data.map((post) => (
-            <article key={post.id} className="rounded-3xl border border-slate-900 bg-slate-900/60 p-6 transition hover:border-emerald-400">
-              <Link
-                href={`/posts/${yearParam}/${monthParam}/${post.slug}`}
-                className="text-2xl font-semibold text-white hover:text-emerald-300"
-              >
-                {post.title}
-              </Link>
-              <p className="mt-2 text-sm text-slate-400">
-                {post.publishedAt ? new Date(post.publishedAt).toLocaleDateString("pt-BR") : "Data pendente"}
-              </p>
-              <p className="mt-3 text-sm text-slate-300">{post.excerpt ?? "Nenhuma descrição ainda."}</p>
-            </article>
-          ))}
+          {posts.data.map((post) => {
+            const permalink = post.authorSlug
+              ? `/blog/${post.authorSlug}/posts/${yearParam}/${monthParam}/${post.slug}`
+              : `/posts/${yearParam}/${monthParam}/${post.slug}`;
+            return (
+              <article key={post.id} className="rounded-3xl border border-slate-900 bg-slate-900/60 p-6 transition hover:border-emerald-400">
+                <Link
+                  href={permalink}
+                  className="text-2xl font-semibold text-white hover:text-emerald-300"
+                >
+                  {post.title}
+                </Link>
+                <p className="mt-2 text-sm text-slate-400">
+                  {post.publishedAt ? formatDateBR(post.publishedAt) : "Data pendente"}
+                </p>
+                <p className="mt-3 text-sm text-slate-300">{post.excerpt ?? "Nenhuma descrição ainda."}</p>
+              </article>
+            );
+          })}
         </section>
       </main>
     </div>

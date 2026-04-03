@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { formatDateBR } from "@/lib/dateTime";
 import { getAuthorBlog, getAuthorPublishedPost, getPostEngagement } from "@/lib/publicApi";
 import { rewriteStorageAssetUrls, sanitizeRichHtml } from "@/lib/sanitizeRichHtml";
 import { AuthorBlogHeader } from "@/components/AuthorBlogHeader";
@@ -99,7 +100,7 @@ export default async function AuthorPostPage({ params }: { params: Promise<Autho
   }
 
   const sanitizedContent = rewriteStorageAssetUrls(sanitizeRichHtml(post.contentFinal ?? post.contentRaw ?? ""), assetOrigin);
-  const formattedDate = post.publishedAt ? new Date(post.publishedAt).toLocaleDateString("pt-BR") : "Data pendente";
+  const formattedDate = post.publishedAt ? formatDateBR(post.publishedAt) : "Data pendente";
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
   const normalizedMonth = String(month).padStart(2, "0");
   const postUrl = `${baseUrl}/blog/${slug}/posts/${year}/${normalizedMonth}/${postSlug}`;

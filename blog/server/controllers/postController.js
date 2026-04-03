@@ -1,6 +1,7 @@
 const { body, param, query, validationResult } = require('express-validator');
 const postService = require('../services/postService');
 const aiService = require('../services/aiService');
+const aiUsageService = require('../services/aiUsageService');
 const instructionService = require('../services/instructionService');
 
 const statusValues = ['draft', 'published'];
@@ -98,7 +99,11 @@ async function show(req, res, next) {
     if (!post) {
       return res.status(404).json({ message: 'Post não encontrado.' });
     }
-    return res.json(post);
+    const aiUsage = await aiUsageService.getAiUsage(req.user.id);
+    return res.json({
+      ...post,
+      aiUsage,
+    });
   } catch (error) {
     return next(error);
   }

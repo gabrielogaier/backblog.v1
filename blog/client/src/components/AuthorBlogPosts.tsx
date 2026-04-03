@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { formatDateBR } from "@/lib/dateTime";
 
 type Post = {
   id: string;
@@ -176,7 +177,7 @@ export function AuthorBlogPosts({ posts, slug, theme }: Props) {
                       {post.title}
                     </Link>
                     <span className="text-xs" style={{ color: `${theme.text}70` }}>
-                      {post.publishedAt ? new Date(post.publishedAt).toLocaleDateString("pt-BR") : "Data em breve"}
+                      {post.publishedAt ? formatDateBR(post.publishedAt) : "Data em breve"}
                     </span>
                   </div>
                   <p className="line-clamp-3 text-sm" style={{ color: `${theme.text}CC` }}>

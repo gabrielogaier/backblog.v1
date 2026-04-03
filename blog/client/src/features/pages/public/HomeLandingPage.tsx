@@ -1,29 +1,59 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getUserStats, type PublicUserStats } from "@/lib/publicApi";
+import Link from "next/link";
+import {
+  getUserStats,
+  listPublishedPosts,
+  type PublicPost,
+  type PublicUserStats,
+} from "@/lib/publicApi";
 import AnimatedSubtext from "@/components/AnimatedSubtext";
 import PublicHeader from "@/components/PublicHeader";
+import { formatDateBR } from "@/lib/dateTime";
+
+const MAX_PREVIEW_LENGTH = 200;
+
+function getPostPreview(post: PublicPost) {
+  const raw = post.excerpt ?? post.contentFinal ?? post.contentRaw ?? "";
+  const normalized = raw.replace(/<\/?[^>]+(>|$)/g, " ").replace(/\s+/g, " ").trim();
+  if (!normalized) return "Sem prévia disponível.";
+  if (normalized.length <= MAX_PREVIEW_LENGTH) return normalized;
+  const trimmed = normalized.slice(0, MAX_PREVIEW_LENGTH);
+  const safeBreak = trimmed.lastIndexOf(" ");
+  const preview = safeBreak > MAX_PREVIEW_LENGTH * 0.6 ? trimmed.slice(0, safeBreak) : trimmed;
+  return `${preview.trimEnd()}...`;
+}
 
 export default function HomeLandingPage() {
   const [userStats, setUserStats] = useState<PublicUserStats | null>(null);
+  const [latestPosts, setLatestPosts] = useState<PublicPost[]>([]);
+  const [postsLoading, setPostsLoading] = useState(true);
   const [accountDeletedToast, setAccountDeletedToast] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
 
-    async function fetchStats() {
+    async function fetchHomeData() {
       try {
-        const stats = await getUserStats();
+        const [stats, postsResponse] = await Promise.all([
+          getUserStats(),
+          listPublishedPosts({ limit: 10 }),
+        ]);
         if (isMounted) {
           setUserStats(stats);
+          setLatestPosts(postsResponse.data);
         }
       } catch (error) {
-        console.error("Não foi possível carregar as estatísticas públicas", error);
+        console.error("Não foi possível carregar os dados públicos da home", error);
+      } finally {
+        if (isMounted) {
+          setPostsLoading(false);
+        }
       }
     }
 
-    fetchStats();
+    fetchHomeData();
 
     return () => {
       isMounted = false;
@@ -112,6 +142,60 @@ export default function HomeLandingPage() {
               </div>
             </div>
           </div>
+        </section>
+
+        <section className="mt-8 space-y-4 rounded-3xl border border-slate-900 bg-slate-900/70 p-8">
+          <div className="space-y-1">
+            <p className="text-xs uppercase tracking-[0.4em] text-emerald-400">Publicações recentes</p>
+            <h2 className="text-2xl font-semibold text-white">Últimos 10 posts públicos da comunidade</h2>
+          </div>
+
+          {postsLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={`recent-post-skeleton-${index}`} className="h-24 animate-pulse rounded-2xl bg-slate-800/40" />
+              ))}
+            </div>
+          ) : latestPosts.length ? (
+            <div className="space-y-3">
+              {latestPosts.map((post) => {
+                const hasPermalink = post.year && post.month;
+                const permalink = hasPermalink
+                  ? post.authorSlug
+                    ? `/blog/${post.authorSlug}/posts/${post.year}/${String(post.month).padStart(2, "0")}/${post.slug}`
+                    : `/posts/${post.year}/${String(post.month).padStart(2, "0")}/${post.slug}`
+                  : undefined;
+                return (
+                  <article
+                    key={post.id}
+                    className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4 transition hover:border-emerald-400/50"
+                  >
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                      <span>{post.blogName ?? "Backblog"}</span>
+                      <span>·</span>
+                      <span>{post.publishedAt ? formatDateBR(post.publishedAt) : "Data pendente"}</span>
+                    </div>
+                    <h3 className="mt-2 text-xl font-semibold text-white">{post.title}</h3>
+                    <p className="mt-2 text-sm text-slate-300">{getPostPreview(post)}</p>
+                    {permalink ? (
+                      <Link
+                        href={permalink}
+                        className="mt-3 inline-flex rounded-full border border-slate-700 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300 hover:border-emerald-400"
+                      >
+                        Ler post
+                      </Link>
+                    ) : (
+                      <span className="mt-3 inline-flex rounded-full border border-slate-800 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                        Link indisponível
+                      </span>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">Ainda não há publicações públicas para mostrar.</p>
+          )}
         </section>
       </main>
     </div>

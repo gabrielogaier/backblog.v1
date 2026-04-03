@@ -1,8 +1,9 @@
 "use client";
 
 import PublicHeader from "@/components/PublicHeader";
+import { formatDateBR } from "@/lib/dateTime";
 
-const lastUpdated = new Date().toLocaleDateString("pt-BR", {
+const lastUpdated = formatDateBR(new Date(), {
   day: "2-digit",
   month: "long",
   year: "numeric",

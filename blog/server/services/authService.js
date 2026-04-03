@@ -196,10 +196,10 @@ async function registerUser({ name, email, password }) {
   const passwordHash = await argon2.hash(password);
 
   const result = await query(
-    `INSERT INTO users (name, email, password_hash)
-     VALUES ($1, $2, $3)
+    `INSERT INTO users (name, email, password_hash, ai_daily_limit)
+     VALUES ($1, $2, $3, $4)
      RETURNING id, email, name, role`,
-    [name?.trim() || null, trimmedEmail, passwordHash],
+    [name?.trim() || null, trimmedEmail, passwordHash, config.openai.dailyLimitDefault],
   );
 
   return mapUser(result.rows[0]);

@@ -54,10 +54,38 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash   TEXT NOT NULL,
     name            VARCHAR(120),
     role            VARCHAR(32) NOT NULL DEFAULT 'admin',
+    ai_daily_limit  INTEGER NOT NULL DEFAULT 20,
     last_login_at   TIMESTAMPTZ,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT users_ai_daily_limit_positive CHECK (ai_daily_limit > 0)
 );
+
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS ai_daily_limit INTEGER;
+
+UPDATE users
+   SET ai_daily_limit = 20
+ WHERE ai_daily_limit IS NULL;
+
+ALTER TABLE users
+    ALTER COLUMN ai_daily_limit SET DEFAULT 20;
+
+ALTER TABLE users
+    ALTER COLUMN ai_daily_limit SET NOT NULL;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_constraint
+         WHERE conname = 'users_ai_daily_limit_positive'
+    ) THEN
+        ALTER TABLE users
+            ADD CONSTRAINT users_ai_daily_limit_positive
+            CHECK (ai_daily_limit > 0);
+    END IF;
+END$$;
 
 CREATE TABLE IF NOT EXISTS user_workspaces (
     id          BIGSERIAL PRIMARY KEY,
@@ -345,6 +373,17 @@ ALTER TABLE ai_generation_logs
 CREATE INDEX IF NOT EXISTS ai_generation_logs_post_idx ON ai_generation_logs (post_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS ai_generation_logs_conversation_idx ON ai_generation_logs (conversation_id, created_at DESC);
 
+CREATE TABLE IF NOT EXISTS ai_daily_usage (
+    id             BIGSERIAL PRIMARY KEY,
+    user_id        BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    usage_date     DATE NOT NULL,
+    request_count  INTEGER NOT NULL DEFAULT 0 CHECK (request_count >= 0),
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, usage_date)
+);
+CREATE INDEX IF NOT EXISTS ai_daily_usage_user_date_idx ON ai_daily_usage (user_id, usage_date);
+
 CREATE TABLE IF NOT EXISTS audit_logs (
     id          BIGSERIAL PRIMARY KEY,
     user_id     BIGINT REFERENCES users(id) ON DELETE SET NULL,
@@ -377,6 +416,11 @@ CREATE TRIGGER posts_set_updated_at
 DROP TRIGGER IF EXISTS user_profiles_set_updated_at ON user_profiles;
 CREATE TRIGGER user_profiles_set_updated_at
     BEFORE UPDATE ON user_profiles
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS ai_daily_usage_set_updated_at ON ai_daily_usage;
+CREATE TRIGGER ai_daily_usage_set_updated_at
+    BEFORE UPDATE ON ai_daily_usage
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 COMMIT;

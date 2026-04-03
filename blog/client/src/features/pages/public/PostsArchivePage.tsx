@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { formatDateBR, formatMonthNameBR } from "@/lib/dateTime";
 import { getBlogSettings, listPublishedPosts } from "@/lib/publicApi";
 
 const normalizeParam = (value?: string | string[] | null) => (Array.isArray(value) ? value[0] : value);
@@ -125,9 +126,7 @@ export default async function PostsArchivePage({ searchParams }: { searchParams?
                   .sort((a, b) => Number(b) - Number(a))
                   .map((value) => (
                     <option key={value} value={value}>
-                      {`${String(value).padStart(2, "0")} — ${new Date(0, Number(value) - 1).toLocaleString("pt-BR", {
-                        month: "long",
-                      })}`}
+                      {`${String(value).padStart(2, "0")} — ${formatMonthNameBR(Number(value))}`}
                     </option>
                   ))}
               </select>
@@ -157,30 +156,35 @@ export default async function PostsArchivePage({ searchParams }: { searchParams?
         </header>
 
         <section className="grid gap-6 md:grid-cols-2">
-          {postsResponse.data.map((post) => (
-            <article
-              key={post.id}
-              className="flex flex-col gap-3 rounded-3xl border border-slate-900 bg-slate-900/70 p-6 transition hover:border-emerald-400"
-            >
-              <Link
-                href={`/posts/${post.year}/${String(post.month).padStart(2, "0")}/${post.slug}`}
-                className="text-xl font-semibold text-white hover:text-emerald-300"
+          {postsResponse.data.map((post) => {
+            const permalink = post.authorSlug
+              ? `/blog/${post.authorSlug}/posts/${post.year}/${String(post.month).padStart(2, "0")}/${post.slug}`
+              : `/posts/${post.year}/${String(post.month).padStart(2, "0")}/${post.slug}`;
+            return (
+              <article
+                key={post.id}
+                className="flex flex-col gap-3 rounded-3xl border border-slate-900 bg-slate-900/70 p-6 transition hover:border-emerald-400"
               >
-                {post.title}
-              </Link>
-              <p className="text-sm text-slate-400">
-                {post.publishedAt ? new Date(post.publishedAt).toLocaleDateString("pt-BR") : "Data pendente"}
-              </p>
-              <p className="text-sm text-slate-300">{post.excerpt ?? "Rascunho com o mesmo tom refinado pela IA."}</p>
-              <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.3em] text-slate-500">
-                {post.tags.map((tagItem) => (
-                  <span key={tagItem.id} className="rounded-full border border-slate-800 px-3 py-1">
-                    #{tagItem.slug}
-                  </span>
-                ))}
-              </div>
-            </article>
-          ))}
+                <Link
+                  href={permalink}
+                  className="text-xl font-semibold text-white hover:text-emerald-300"
+                >
+                  {post.title}
+                </Link>
+                <p className="text-sm text-slate-400">
+                  {post.publishedAt ? formatDateBR(post.publishedAt) : "Data pendente"}
+                </p>
+                <p className="text-sm text-slate-300">{post.excerpt ?? "Rascunho com o mesmo tom refinado pela IA."}</p>
+                <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.3em] text-slate-500">
+                  {post.tags.map((tagItem) => (
+                    <span key={tagItem.id} className="rounded-full border border-slate-800 px-3 py-1">
+                      #{tagItem.slug}
+                    </span>
+                  ))}
+                </div>
+              </article>
+            );
+          })}
         </section>
       </main>
     </div>

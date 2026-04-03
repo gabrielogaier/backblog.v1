@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { formatDateTimeBR } from "@/lib/dateTime";
 import type { ModerationComment, UserProfile } from "@/types";
 
 const STATUS_OPTIONS: Array<{ value: "pending" | "approved" | "hidden"; label: string }> = [
@@ -35,10 +36,7 @@ type CommentsResponse = {
 };
 
 function formatDate(value?: string | null) {
-  if (!value) return "";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString("pt-BR");
+  return formatDateTimeBR(value);
 }
 
 export default function CommentsModerationPage() {

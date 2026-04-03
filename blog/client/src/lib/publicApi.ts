@@ -46,10 +46,21 @@ async function ensureBrowserCsrfToken(): Promise<string | null> {
   const existing = readBrowserCookie(CSRF_COOKIE_NAME);
   if (existing) return existing;
 
-  await fetch(`${BASE_URL}/csrf-token`, {
+  const response = await fetch(`${BASE_URL}/csrf-token`, {
     method: "GET",
     credentials: "include",
   }).catch(() => undefined);
+
+  if (response?.ok) {
+    try {
+      const data = (await response.json()) as { csrfToken?: string };
+      if (typeof data?.csrfToken === "string" && data.csrfToken.trim()) {
+        return data.csrfToken.trim();
+      }
+    } catch {
+      // ignora falha de parse e tenta fallback via cookie
+    }
+  }
 
   return readBrowserCookie(CSRF_COOKIE_NAME);
 }
@@ -112,6 +123,8 @@ export type PublicPost = {
   id: string;
   title: string;
   slug: string;
+  blogName?: string;
+  authorSlug?: string | null;
   excerpt?: string | null;
   contentFinal?: string | null;
   contentRaw?: string | null;
