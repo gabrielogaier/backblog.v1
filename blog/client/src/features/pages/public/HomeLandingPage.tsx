@@ -87,7 +87,7 @@ export default function HomeLandingPage() {
     : "Monitorando atividade...";
 
   const handleSubmit = () => {
-    window.location.href = "/login";
+    window.location.href = "/signup";
   };
 
   return (

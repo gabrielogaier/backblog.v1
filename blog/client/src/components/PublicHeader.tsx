@@ -21,7 +21,7 @@ export default function PublicHeader() {
               className="rounded-full border border-slate-800 px-4 py-2 text-sm font-semibold text-slate-100 hover:border-emerald-400"
               href="/signup"
             >
-              Sign up
+              Criar conta
             </Link>
             <Link
               className="rounded-full border border-slate-800 px-4 py-2 text-sm font-semibold text-slate-100 hover:border-emerald-400"
@@ -69,7 +69,7 @@ export default function PublicHeader() {
               href="/signup"
               onClick={() => setMenuOpen(false)}
             >
-              Sign up
+              Criar conta
             </Link>
             <Link
               className="rounded-2xl border border-slate-800 px-4 py-2 text-sm font-semibold text-slate-100 hover:border-emerald-400"
