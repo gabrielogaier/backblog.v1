@@ -33,8 +33,11 @@ node blog/server/seeds/initialSeed.js
 - autorização por propriedade de recurso (escopo do usuário autenticado); `admin` representa dono da própria conta, não superadmin global
 - rate limit em rotas de autenticação:
   - `POST /api/admin/auth/login`
+  - `POST /api/admin/auth/google`
   - `POST /api/admin/auth/refresh`
   - `POST /api/public/register`
+  - `POST /api/public/register/request-code`
+  - `POST /api/public/register/verify-code`
 - rate limit em endpoints sensíveis de tráfego:
   - `POST /api/public/posts/:year/:month/:slug/likes`
   - `POST /api/public/posts/:year/:month/:slug/comments`
@@ -55,6 +58,8 @@ Definidas em `blog/.env` (base em `blog/.env.example`):
 - Sessão/cookies: `SESSION_EXPIRATION_HOURS`, `REFRESH_TOKEN_DAYS`, `SESSION_COOKIE_NAME`, `REFRESH_COOKIE_NAME`
 - Política de cookies: `COOKIE_SAME_SITE` (`strict|lax|none`) e `COOKIE_SECURE` (`true|false|auto`)
 - CSRF: `CSRF_COOKIE_NAME`, `CSRF_COOKIE_MAX_AGE_MS`, `CSRF_ENFORCE_ORIGIN`
+- Google auth: `GOOGLE_CLIENT_ID`
+- Verificação de e-mail no cadastro: `EMAIL_VERIFICATION_CODE_TTL_MINUTES`, `EMAIL_VERIFICATION_MAX_ATTEMPTS`
 - Segurança auth:
   - `AUTH_LOGIN_RATE_LIMIT_WINDOW_MS`, `AUTH_LOGIN_RATE_LIMIT_MAX`
   - `AUTH_REFRESH_RATE_LIMIT_WINDOW_MS`, `AUTH_REFRESH_RATE_LIMIT_MAX`
@@ -74,6 +79,29 @@ Definidas em `blog/.env` (base em `blog/.env.example`):
   - `STORAGE_PRIVATE_ROOT`
 - Seed admin: `ADMIN_EMAIL`, `ADMIN_PASSWORD`
 - OpenAI: `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_MAX_TOKENS`, `OPENAI_TEMPERATURE`, `OPENAI_DAILY_LIMIT_DEFAULT`
+- SMTP transacional (`no-reply`):
+  - `MAIL_ENABLED`
+  - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`
+  - `SMTP_IGNORE_TLS`, `SMTP_TLS_REJECT_UNAUTHORIZED`
+  - `SMTP_USER`, `SMTP_PASS`
+  - `MAIL_FROM_NO_REPLY`, `MAIL_REPLY_TO`
+
+### SMTP (no-reply) pronto para auth
+
+O backend já possui `mailerService` com templates para:
+
+- código de verificação
+- redefinição de senha
+- alerta de novo login
+
+Arquivo: `blog/server/services/mailerService.js`
+
+Observação importante:
+
+- `SMTP_SECURE` **não é senha**.
+- Use `SMTP_SECURE=true` normalmente com porta `465` (TLS implícito).
+- Use `SMTP_SECURE=false` normalmente com porta `587` (STARTTLS).
+- Ajuste `SMTP_IGNORE_TLS` e `SMTP_TLS_REJECT_UNAUTHORIZED` apenas conforme necessidade do seu relay SMTP.
 
 ## Headers no reverso (produção)
 
@@ -102,6 +130,7 @@ Base padrão: `/api`
 ### Admin - autenticação
 
 - `POST /api/admin/auth/login`
+- `POST /api/admin/auth/google`
 - `POST /api/admin/auth/refresh`
 - `GET /api/admin/auth/me`
 - `POST /api/admin/auth/logout`
@@ -152,7 +181,20 @@ Base padrão: `/api`
 - `GET /api/public/stats/users`
 - `GET /api/public/blogs/:slug`
 - `GET /api/public/blogs/:slug/posts/:year/:month/:postSlug`
+- `POST /api/public/register/request-code`
+- `POST /api/public/register/verify-code`
 - `POST /api/public/register`
+
+### Fluxo de cadastro e autenticação (atual)
+
+- Cadastro local:
+  - `POST /api/public/register/request-code` gera código de verificação e envia por e-mail.
+  - `POST /api/public/register/verify-code` valida o código e só então cria o usuário.
+  - `POST /api/public/register` permanece por compatibilidade e inicia o envio de código.
+- Login local:
+  - só autentica com `password_hash` presente e `email_verified=true`.
+- Login Google:
+  - `POST /api/admin/auth/google` valida `id_token` no backend e usa a mesma sessão atual (cookies + tabela `sessions`).
 
 Para onboarding completo (frontend + backend), veja:
 [README.md](../../README.md)

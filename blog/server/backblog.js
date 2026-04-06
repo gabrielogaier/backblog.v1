@@ -5,6 +5,7 @@ const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const config = require('./config');
 const routes = require('./routes');
+const mailerService = require('./services/mailerService');
 
 require('./db'); // garante que o pool seja inicializado.
 
@@ -108,6 +109,21 @@ if (require.main === module) {
   const host = process.env.HOST || '0.0.0.0';
   app.listen(config.port, host, () => {
     console.log(`[backblog] API ouvindo em http://${host === '0.0.0.0' ? '0.0.0.0' : host}:${config.port}`);
+
+    if (mailerService.isEnabled()) {
+      if (!mailerService.isConfigured()) {
+        console.warn('[backblog] MAIL_ENABLED=true, mas SMTP está incompleto. Verifique variáveis SMTP_*.');
+        return;
+      }
+
+      mailerService.verifyConnection()
+        .then(() => {
+          console.log('[backblog] SMTP pronto para envios transacionais via no-reply.');
+        })
+        .catch((error) => {
+          console.error('[backblog] falha ao validar SMTP', error.message);
+        });
+    }
   });
 }
 

@@ -41,6 +41,14 @@ const parseOptionalBoolean = (value) => {
   return undefined;
 };
 
+const parseBoolean = (value, fallback = false) => {
+  if (typeof value !== 'string') return fallback;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'true') return true;
+  if (normalized === 'false') return false;
+  return fallback;
+};
+
 const parseSameSite = (value) => {
   if (typeof value !== 'string') return 'lax';
   const normalized = value.trim().toLowerCase();
@@ -72,6 +80,11 @@ const config = {
     hours: numberFromEnv(process.env.SESSION_EXPIRATION_HOURS, 12),
     refreshDays: numberFromEnv(process.env.REFRESH_TOKEN_DAYS, 30),
   },
+  auth: {
+    googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+    emailVerificationCodeTtlMinutes: positiveNumberFromEnv(process.env.EMAIL_VERIFICATION_CODE_TTL_MINUTES, 10),
+    emailVerificationMaxAttempts: positiveNumberFromEnv(process.env.EMAIL_VERIFICATION_MAX_ATTEMPTS, 5),
+  },
   storage: {
     root: defaultStoragePublicRoot,
     publicRoot: defaultStoragePublicRoot,
@@ -94,6 +107,18 @@ const config = {
       : 0.7,
     maxTokens: numberFromEnv(process.env.OPENAI_MAX_TOKENS, 1200),
     dailyLimitDefault: positiveNumberFromEnv(process.env.OPENAI_DAILY_LIMIT_DEFAULT, 20),
+  },
+  mail: {
+    enabled: parseBoolean(process.env.MAIL_ENABLED, false),
+    host: process.env.SMTP_HOST || '',
+    port: positiveNumberFromEnv(process.env.SMTP_PORT, 587),
+    secure: parseBoolean(process.env.SMTP_SECURE, false),
+    ignoreTls: parseBoolean(process.env.SMTP_IGNORE_TLS, false),
+    tlsRejectUnauthorized: parseBoolean(process.env.SMTP_TLS_REJECT_UNAUTHORIZED, true),
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    fromNoReply: process.env.MAIL_FROM_NO_REPLY || 'Backblog <no-reply@example.com>',
+    replyTo: process.env.MAIL_REPLY_TO || 'support@example.com',
   },
   security: {
     rateLimit: {

@@ -17,6 +17,8 @@ router.get('/settings', publicController.getSettings);
 router.get('/stats/users', publicController.getUserStats);
 router.get('/blogs/:slug/posts/:year/:month/:postSlug', publicController.getBlogPostBySlug);
 router.get('/blogs/:slug', publicController.getBlogBySlug);
+router.post('/register/request-code', registerLimiter, authController.registerValidators, authController.requestRegisterCode);
+router.post('/register/verify-code', registerLimiter, authController.registerVerifyValidators, authController.verifyRegisterCode);
 router.post('/register', registerLimiter, authController.registerValidators, authController.register);
 
 module.exports = router;

@@ -6,7 +6,8 @@ Frontend Next.js do Backblog, responsável por área pública, autenticação e 
 
 - Área pública:
   - landing (`/`)
-  - cadastro (`/signup`) e login (`/login`)
+  - cadastro (`/signup`) com fluxo local por código de verificação e opção Google
+  - login (`/login`) com opção local e Google
   - termos (`/termos`) e privacidade (`/privacidade`)
   - arquivo de posts (`/posts`, `/posts/{year}/{month}`, `/posts/{year}/{month}/{slug}`)
   - blog por autor (`/blog/{slug}`)
@@ -45,6 +46,7 @@ App padrão: `http://localhost:3000`
 - `NEXT_PUBLIC_CSRF_COOKIE_NAME`: nome do cookie CSRF (default do backend: `backblog.csrf`)
 - `NEXT_PUBLIC_APP_URL`: URL pública do frontend
 - `NEXT_PUBLIC_CONTACT_EMAIL`: fallback de contato público
+- `NEXT_PUBLIC_GOOGLE_CLIENT_ID`: client id público do Google Sign-In
 
 ## Scripts
 

@@ -11,7 +11,8 @@ Backblog é uma plataforma fullstack de blog com área pública e painel adminis
 
 ## Funcionalidades atuais
 
-- Cadastro público (`/signup`) e autenticação por sessão com cookies (`login`, `refresh`, `logout`)
+- Cadastro público (`/signup`) com verificação de e-mail por código antes da criação da conta
+- Login local e login com Google, ambos usando a mesma sessão por cookies (`login`, `google`, `refresh`, `logout`)
 - Painel admin protegido (`/admin`) com:
   - criação/edição/publicação de posts
   - editor rico (Tiptap)

@@ -219,6 +219,11 @@ export type RegisterPayload = {
   acceptTerms: boolean;
 };
 
+export type VerifyRegisterCodePayload = {
+  email: string;
+  code: string;
+};
+
 export type PublicUserStats = {
   totalUsers: number;
   onlineUsers: number;
@@ -345,11 +350,22 @@ export async function getUserStats() {
   return fetchPublic<PublicUserStats>("/public/stats/users");
 }
 
-export async function registerUser(payload: RegisterPayload) {
-  return fetchPublic<{ message: string }>("/public/register", {
+export async function requestRegisterCode(payload: RegisterPayload) {
+  return fetchPublic<{ message: string; expiresInMinutes?: number }>("/public/register/request-code", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export async function verifyRegisterCode(payload: VerifyRegisterCodePayload) {
+  return fetchPublic<{ message: string }>("/public/register/verify-code", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function registerUser(payload: RegisterPayload) {
+  return requestRegisterCode(payload);
 }
 
 export async function listPostComments(

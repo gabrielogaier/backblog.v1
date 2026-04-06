@@ -40,15 +40,20 @@ async function ensureAdminUser(client) {
   if (existing.rowCount) {
     const userId = existing.rows[0].id;
     await client.query(
-      'UPDATE users SET password_hash = $2, updated_at = NOW() WHERE id = $1',
+      `UPDATE users
+          SET password_hash = $2,
+              email_verified = true,
+              email_verified_at = COALESCE(email_verified_at, NOW()),
+              updated_at = NOW()
+        WHERE id = $1`,
       [userId, passwordHash],
     );
     return userId;
   }
 
   const inserted = await client.query(
-    `INSERT INTO users (email, password_hash, name, role, ai_daily_limit)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO users (email, password_hash, email_verified, email_verified_at, name, role, ai_daily_limit)
+     VALUES ($1, $2, true, NOW(), $3, $4, $5)
      RETURNING id`,
     [
       ADMIN_EMAIL,

@@ -1,6 +1,6 @@
 # Especificação Funcional — Backblog (versão atual)
 
-_Atualizado em: 2026-03-26_
+_Atualizado em: 2026-04-06_
 
 ## 1) Escopo
 
@@ -24,8 +24,17 @@ Não há módulo de pagamentos.
 
 ### 3.1 Autenticação e conta
 
-- Cadastro público com `name`, `email`, `password`, `confirmPassword` e aceite de termos.
-- Login por email e senha.
+- Cadastro público com verificação de e-mail por código antes da criação final da conta.
+  - etapa 1: solicitar código com `name`, `email`, `password`, `confirmPassword` e aceite de termos;
+  - etapa 2: validar código de 6 dígitos para concluir cadastro.
+- Login local por email e senha, permitido apenas para conta com:
+  - `password_hash` definido;
+  - `email_verified=true`.
+- Login com Google (id token validado no backend).
+- Vínculo automático local+Google apenas quando seguro:
+  - e-mail igual;
+  - conta local já verificada;
+  - `google_sub` sem conflito.
 - Sessão com cookie `httpOnly` + refresh token.
 - Endpoint para `me` (usuário autenticado).
 - Logout e exclusão da conta (com remoção de dados do usuário).
@@ -119,6 +128,7 @@ Não há módulo de pagamentos.
 ### 5.2 Admin auth
 
 - `POST /api/admin/auth/login`
+- `POST /api/admin/auth/google`
 - `POST /api/admin/auth/refresh`
 - `GET /api/admin/auth/me`
 - `POST /api/admin/auth/logout`
@@ -168,13 +178,15 @@ Não há módulo de pagamentos.
 - `GET /api/public/settings`
 - `GET /api/public/stats/users`
 - `GET /api/public/blogs/:slug`
+- `POST /api/public/register/request-code`
+- `POST /api/public/register/verify-code`
 - `POST /api/public/register`
 
 ## 6) Requisitos de dados (alto nível)
 
 Entidades principais já presentes no schema:
 
-- `users`, `sessions`, `user_workspaces`
+- `users`, `sessions`, `user_workspaces`, `registration_verifications`
 - `user_profiles`, `blog_settings`
 - `instructions`, `instruction_versions`
 - `posts`, `tags`, `post_tags`, `post_revisions`
@@ -185,7 +197,7 @@ Entidades principais já presentes no schema:
 ## 7) Backlog oficial (próximas entregas)
 
 1. Testes automatizados (unit + integração).
-2. Migrações versionadas (substituir estratégia centrada em `schema.sql`).
+2. Estratégia formal de mudança de schema sem expor scripts operacionais sensíveis no repositório público.
 3. Observabilidade (logs estruturados, métricas, alertas).
 4. SEO técnico completo (`sitemap.xml`, canonicals revisados por contexto).
 5. Rotina formal de backup/restore com teste periódico.

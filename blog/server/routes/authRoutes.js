@@ -6,6 +6,7 @@ const { loginLimiter, refreshLimiter } = require('../middlewares/authRateLimiter
 const router = express.Router();
 
 router.post('/login', loginLimiter, authController.loginValidators, authController.login);
+router.post('/google', loginLimiter, authController.googleLoginValidators, authController.googleLogin);
 router.post('/refresh', refreshLimiter, authController.refresh);
 router.get('/me', requireAuth, authController.me);
 router.post('/logout', requireAuth, authController.logout);

@@ -51,9 +51,13 @@ $$ LANGUAGE plpgsql;
 CREATE TABLE IF NOT EXISTS users (
     id              BIGSERIAL PRIMARY KEY,
     email           VARCHAR(255) NOT NULL UNIQUE,
-    password_hash   TEXT NOT NULL,
+    password_hash   TEXT,
+    email_verified  BOOLEAN NOT NULL DEFAULT false,
+    email_verified_at TIMESTAMPTZ,
     name            VARCHAR(120),
     role            VARCHAR(32) NOT NULL DEFAULT 'admin',
+    google_sub      VARCHAR(255) UNIQUE,
+    google_linked_at TIMESTAMPTZ,
     ai_daily_limit  INTEGER NOT NULL DEFAULT 20,
     last_login_at   TIMESTAMPTZ,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -74,6 +78,34 @@ ALTER TABLE users
 ALTER TABLE users
     ALTER COLUMN ai_daily_limit SET NOT NULL;
 
+ALTER TABLE users
+    ALTER COLUMN password_hash DROP NOT NULL;
+
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS email_verified BOOLEAN;
+
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ;
+
+UPDATE users
+   SET email_verified = true,
+       email_verified_at = COALESCE(email_verified_at, created_at, NOW())
+ WHERE email_verified IS NULL;
+
+ALTER TABLE users
+    ALTER COLUMN email_verified SET DEFAULT false;
+
+ALTER TABLE users
+    ALTER COLUMN email_verified SET NOT NULL;
+
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS google_sub VARCHAR(255);
+
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS google_linked_at TIMESTAMPTZ;
+
+CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub_idx ON users (google_sub) WHERE google_sub IS NOT NULL;
+
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -93,6 +125,23 @@ CREATE TABLE IF NOT EXISTS user_workspaces (
     root_path   TEXT NOT NULL,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS registration_verifications (
+    id                BIGSERIAL PRIMARY KEY,
+    email             VARCHAR(255) NOT NULL,
+    email_normalized  VARCHAR(255) NOT NULL UNIQUE,
+    name              VARCHAR(120),
+    password_hash     TEXT NOT NULL,
+    code_hash         TEXT NOT NULL,
+    expires_at        TIMESTAMPTZ NOT NULL,
+    attempts          SMALLINT NOT NULL DEFAULT 0,
+    last_sent_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS registration_verifications_expires_idx
+    ON registration_verifications (expires_at);
 
 CREATE TABLE IF NOT EXISTS blog_settings (
     id                BIGSERIAL PRIMARY KEY,
@@ -421,6 +470,11 @@ CREATE TRIGGER user_profiles_set_updated_at
 DROP TRIGGER IF EXISTS ai_daily_usage_set_updated_at ON ai_daily_usage;
 CREATE TRIGGER ai_daily_usage_set_updated_at
     BEFORE UPDATE ON ai_daily_usage
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS registration_verifications_set_updated_at ON registration_verifications;
+CREATE TRIGGER registration_verifications_set_updated_at
+    BEFORE UPDATE ON registration_verifications
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 COMMIT;

@@ -1,10 +1,10 @@
 # Diário de Progresso — Backblog
 
-_Atualizado em: 2026-03-26_
+_Atualizado em: 2026-04-06_
 
 ## Resumo executivo
 
-- Plataforma multiusuário ativa: cadastro público, login por sessão, perfil com slug e workspace por usuário.
+- Plataforma multiusuário ativa: cadastro público com verificação por código, login local + Google, perfil com slug e workspace por usuário.
 - Fluxo editorial completo no admin: editor rico, upload de imagens, revisões, conversa com IA e publicação.
 - Site público funcional em dois formatos:
   - arquivo global (`/posts/...`)
@@ -19,6 +19,7 @@ _Atualizado em: 2026-03-26_
 
 - `schema.sql` consolidado com tabelas para:
   - autenticação/sessão (`users`, `sessions`)
+  - verificação de cadastro (`registration_verifications`)
   - conteúdo (`posts`, `tags`, `post_tags`, `post_revisions`)
   - IA (`instructions`, `instruction_versions`, `conversations`, `conversation_messages`, `ai_generation_logs`)
   - público/engajamento (`post_likes`, `post_comments`, `blog_settings`, `user_profiles`, `user_workspaces`, `audit_logs`)
@@ -28,7 +29,7 @@ _Atualizado em: 2026-03-26_
   - cookies `httpOnly` + `sameSite=lax` (+ `secure` em produção)
   - CSRF com cookie + header (`GET /api/csrf-token`, validação de origem opcional)
 - API admin entregue para:
-  - auth (`login`, `refresh`, `me`, `logout`, `delete account`)
+  - auth (`login`, `google login`, `refresh`, `me`, `logout`, `delete account`)
   - CRUD de posts, revisões e logs de geração
   - conversas por post
   - instruções de IA
@@ -38,9 +39,14 @@ _Atualizado em: 2026-03-26_
   - moderação de comentários
 - API pública entregue para:
   - listagem/leitura de posts e blog por slug
-  - cadastro (`/api/public/register`)
+  - cadastro com verificação por código (`/api/public/register/request-code`, `/api/public/register/verify-code`, alias `/api/public/register`)
   - estatísticas públicas (`/api/public/stats/users`)
   - likes/comentários por permalink
+
+- Regras atuais de autenticação:
+  - login local bloqueia conta sem `password_hash` ou sem `email_verified=true`;
+  - login Google valida `id_token` no backend e reaproveita sessão atual;
+  - vínculo automático local+Google só para conta local já verificada.
 
 ### IA e conteúdo
 
@@ -65,6 +71,8 @@ _Atualizado em: 2026-03-26_
 ### Frontend público
 
 - Landing com CTA, login/cadastro, termos/privacidade e contadores de usuários.
+- Login e signup com opção Google.
+- Signup em duas etapas (enviar código por e-mail e confirmar código).
 - Arquivo global:
   - `/posts`
   - `/posts/{ano}/{mes}`
@@ -85,7 +93,7 @@ _Atualizado em: 2026-03-26_
 ## Melhorias prioritárias
 
 1. Criar suíte de testes automatizados (unit + integração) para auth, posts, IA e moderação.
-2. Evoluir de `schema.sql` para migrações versionadas.
+2. Formalizar processo de evolução de schema sem expor scripts operacionais sensíveis no repositório público.
 3. Adicionar observabilidade mínima: logs estruturados, métricas e alertas.
 4. Completar SEO técnico com `sitemap.xml`, canonicals por rota e revisão de OG por contexto de autor.
 5. Formalizar rotina de backup/restore com teste periódico de recuperação.
@@ -96,4 +104,4 @@ _Atualizado em: 2026-03-26_
 
 - O requisito foi atualizado para o cenário multiusuário já implementado.
 - O requisito agora reflete CSRF como funcionalidade entregue (não pendência).
-- Mantidos como backlog explícito: testes automatizados, migrações versionadas, SEO técnico completo e observabilidade.
+- Mantidos como backlog explícito: testes automatizados, evolução de schema com governança, SEO técnico completo e observabilidade.

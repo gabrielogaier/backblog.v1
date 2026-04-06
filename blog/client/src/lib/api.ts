@@ -59,6 +59,12 @@ function toAbsoluteAssetUrl(path: string) {
 type FetchOptions = RequestInit;
 let refreshInFlight: Promise<boolean> | null = null;
 
+export type ApiError = Error & {
+  status?: number;
+  code?: string;
+  data?: unknown;
+};
+
 function readCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
   const entry = document.cookie
@@ -178,7 +184,11 @@ export async function apiFetch<T>(path: string, options: FetchOptions = {}): Pro
 
   if (!response.ok) {
     const message = (data as { message?: string })?.message ?? "Erro inesperado. Tente novamente.";
-    throw new Error(message);
+    const error: ApiError = new Error(message);
+    error.status = response.status;
+    error.code = typeof (data as { code?: unknown })?.code === "string" ? ((data as { code: string }).code) : undefined;
+    error.data = data;
+    throw error;
   }
 
   return data as T;
@@ -189,6 +199,11 @@ export const api = {
     apiFetch<{ user: User; session: { expiresAt: string }; aiUsage?: AiUsage | null }>("/admin/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
+    }),
+  googleLogin: (idToken: string) =>
+    apiFetch<{ user: User; session: { expiresAt: string }; aiUsage?: AiUsage | null }>("/admin/auth/google", {
+      method: "POST",
+      body: JSON.stringify({ idToken }),
     }),
   logout: () =>
     apiFetch<void>("/admin/auth/logout", {

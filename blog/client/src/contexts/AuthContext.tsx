@@ -12,6 +12,7 @@ type AuthContextValue = {
   refresh: () => Promise<void>;
   updateAiUsage: (nextUsage: AiUsage | null) => void;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -87,6 +88,16 @@ export function AuthProvider({
     [refresh, router, setAiUsage],
   );
 
+  const loginWithGoogle = useCallback(
+    async (idToken: string) => {
+      const loginResult = await api.googleLogin(idToken);
+      setAiUsage(loginResult.aiUsage ?? null);
+      await refresh();
+      router.push("/admin");
+    },
+    [refresh, router, setAiUsage],
+  );
+
   const logout = useCallback(async () => {
     logoutInProgressRef.current = true;
     refreshAbortRef.current?.abort();
@@ -110,9 +121,10 @@ export function AuthProvider({
       refresh,
       updateAiUsage,
       login,
+      loginWithGoogle,
       logout,
     }),
-    [user, aiUsage, loading, refresh, updateAiUsage, login, logout],
+    [user, aiUsage, loading, refresh, updateAiUsage, login, loginWithGoogle, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

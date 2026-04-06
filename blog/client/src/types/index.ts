@@ -3,6 +3,7 @@ export type User = {
   email: string;
   name?: string;
   role: string;
+  emailVerified?: boolean;
 };
 
 export type AiUsage = {
