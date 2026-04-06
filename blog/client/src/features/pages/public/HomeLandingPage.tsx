@@ -113,7 +113,7 @@ export default function HomeLandingPage() {
             onClick={handleSubmit}
             className="h-12 rounded-2xl bg-emerald-400 px-8 text-sm font-semibold uppercase tracking-[0.2em] text-slate-950 transition hover:bg-emerald-300"
           >
-            Comece agora. É grátis!
+            Comece agora.
           </button>
           <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-6 shadow-lg shadow-emerald-500/5">
             <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-between">
