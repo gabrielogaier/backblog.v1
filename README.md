@@ -104,3 +104,9 @@ App padrão: `http://localhost:3000`
 - Não commitar `blog/.env` e `blog/client/.env.local`.
 - Não usar `NEXT_PUBLIC_*` para secrets.
 - Se uma chave real foi usada localmente, rotacione antes de publicar.
+
+## Marca e identidade visual
+
+O código deste projeto está licenciado sob a licença MIT. No entanto, o nome **Backblog**, o logotipo, os ícones, a identidade visual e outros elementos de marca não estão incluídos nessa licença.
+
+Você não pode usar publicamente a marca Backblog, seu logotipo ou identidade visual para divulgar, distribuir, hospedar ou apresentar versões derivadas deste projeto como se fossem oficiais, sem autorização prévia por escrito do autor.
