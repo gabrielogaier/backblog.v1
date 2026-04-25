@@ -58,6 +58,15 @@ const parseSameSite = (value) => {
   return 'lax';
 };
 
+const parseReasoningEffort = (value) => {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (['none', 'minimal', 'low', 'medium', 'high'].includes(normalized)) {
+    return normalized;
+  }
+  return undefined;
+};
+
 const config = {
   env: process.env.NODE_ENV || 'development',
   port: numberFromEnv(process.env.PORT, 4010),
@@ -101,11 +110,15 @@ const config = {
   },
   openai: {
     apiKey: process.env.OPENAI_API_KEY,
-    model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+    model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
+    reasoningEffort: parseReasoningEffort(process.env.OPENAI_REASONING_EFFORT),
     temperature: Number.isFinite(Number(process.env.OPENAI_TEMPERATURE))
       ? Number(process.env.OPENAI_TEMPERATURE)
       : 0.7,
-    maxTokens: numberFromEnv(process.env.OPENAI_MAX_TOKENS, 1200),
+    maxTokens: numberFromEnv(process.env.OPENAI_MAX_TOKENS, 3000),
+    maxContinuations: positiveNumberFromEnv(process.env.OPENAI_MAX_CONTINUATIONS, 3),
+    conversationDraftMaxChars: positiveNumberFromEnv(process.env.OPENAI_CONVERSATION_DRAFT_MAX_CHARS, 20000),
+    conversationSnapshotMaxChars: positiveNumberFromEnv(process.env.OPENAI_CONVERSATION_SNAPSHOT_MAX_CHARS, 12000),
     dailyLimitDefault: positiveNumberFromEnv(process.env.OPENAI_DAILY_LIMIT_DEFAULT, 20),
   },
   mail: {

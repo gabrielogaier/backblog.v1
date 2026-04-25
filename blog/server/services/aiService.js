@@ -57,6 +57,8 @@ const systemPrompt = [
   'Você é o assistente de escrita do autor.',
   'Reescreva mantendo voz pessoal, clareza, coesão e ritmo.',
   'Não invente fatos. Preserve ideias do rascunho.',
+  'Entregue respostas completas, com fechamento claro.',
+  'Não termine com reticências (...) ou frases incompletas.',
   '',
   'Regras obrigatórias de formatação:',
   formattingRules,
@@ -67,6 +69,156 @@ const openaiClient = config.openai.apiKey
       apiKey: config.openai.apiKey,
     })
   : null;
+
+const CONTINUE_GENERATION_PROMPT =
+  'Continue exatamente de onde parou, sem repetir conteúdo já escrito, e finalize o texto por completo. Não termine com reticências.';
+const COMPLETED_ENDING_PATTERN = /(?:[.!?]["')\]]?|```)\s*$/;
+
+function shouldContinueGeneration(text, finishReason) {
+  const trimmed = typeof text === 'string' ? text.trim() : '';
+  if (!trimmed) {
+    return false;
+  }
+
+  if (finishReason === 'length') {
+    return true;
+  }
+
+  if (/\.{3}$|…$/.test(trimmed)) {
+    return true;
+  }
+
+  return trimmed.length >= 240 && !COMPLETED_ENDING_PATTERN.test(trimmed);
+}
+
+function aggregateUsage(usages) {
+  const valid = usages.filter(Boolean);
+  if (!valid.length) {
+    return null;
+  }
+
+  const sum = (field) =>
+    valid.reduce((total, usage) => total + (Number.isFinite(usage?.[field]) ? usage[field] : 0), 0);
+
+  return {
+    prompt_tokens: sum('prompt_tokens'),
+    completion_tokens: sum('completion_tokens'),
+    total_tokens: sum('total_tokens'),
+  };
+}
+
+function isUnsupportedMaxTokensError(error) {
+  const param = typeof error?.error?.param === 'string' ? error.error.param : '';
+  const message = typeof error?.message === 'string' ? error.message.toLowerCase() : '';
+
+  return param === 'max_tokens' || message.includes("'max_tokens' is not supported");
+}
+
+function isUnsupportedTemperatureError(error) {
+  const param = typeof error?.error?.param === 'string' ? error.error.param : '';
+  const message = typeof error?.message === 'string' ? error.message.toLowerCase() : '';
+
+  return (
+    param === 'temperature'
+    || (message.includes('temperature') && message.includes('only the default'))
+  );
+}
+
+function isUnsupportedReasoningEffortError(error) {
+  const param = typeof error?.error?.param === 'string' ? error.error.param : '';
+  const message = typeof error?.message === 'string' ? error.message.toLowerCase() : '';
+
+  return param === 'reasoning_effort' || message.includes('reasoning_effort');
+}
+
+async function createChatCompletion(messages) {
+  const normalizedModel = String(config.openai.model || '').trim().toLowerCase();
+  const isGpt5Family = normalizedModel.startsWith('gpt-5');
+
+  let useMaxCompletionTokens = isGpt5Family;
+  let includeTemperature = !(isGpt5Family && config.openai.temperature !== 1);
+  let includeReasoningEffort = typeof config.openai.reasoningEffort === 'string' && config.openai.reasoningEffort.length > 0;
+  let lastError = null;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const payload = {
+      model: config.openai.model,
+      messages,
+      [useMaxCompletionTokens ? 'max_completion_tokens' : 'max_tokens']: config.openai.maxTokens,
+    };
+
+    if (includeTemperature) {
+      payload.temperature = config.openai.temperature;
+    }
+    if (includeReasoningEffort) {
+      payload.reasoning_effort = config.openai.reasoningEffort;
+    }
+
+    try {
+      return await openaiClient.chat.completions.create(payload);
+    } catch (error) {
+      lastError = error;
+
+      if (isUnsupportedMaxTokensError(error) && !useMaxCompletionTokens) {
+        useMaxCompletionTokens = true;
+        continue;
+      }
+
+      if (isUnsupportedTemperatureError(error) && includeTemperature) {
+        includeTemperature = false;
+        continue;
+      }
+
+      if (isUnsupportedReasoningEffortError(error) && includeReasoningEffort) {
+        includeReasoningEffort = false;
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw lastError;
+}
+
+async function createCompletionWithAutoContinue(baseMessages) {
+  const allMessages = [...baseMessages];
+  const parts = [];
+  const usageSnapshots = [];
+  const configuredContinuations = Number.isFinite(config.openai.maxContinuations)
+    ? Math.floor(config.openai.maxContinuations)
+    : 1;
+  const maxContinuations = Math.max(0, configuredContinuations);
+  let continuationCount = 0;
+
+  while (true) {
+    const completion = await createChatCompletion(allMessages);
+
+    usageSnapshots.push(completion.usage || null);
+    const choice = completion.choices?.[0] || null;
+    const finishReason = choice?.finish_reason || null;
+    const generatedText = choice?.message?.content?.trim();
+
+    if (!generatedText) {
+      return {
+        content: '',
+        usage: aggregateUsage(usageSnapshots),
+      };
+    }
+
+    parts.push(generatedText);
+    if (!shouldContinueGeneration(generatedText, finishReason) || continuationCount >= maxContinuations) {
+      return {
+        content: parts.join('\n\n'),
+        usage: aggregateUsage(usageSnapshots),
+      };
+    }
+
+    continuationCount += 1;
+    allMessages.push({ role: 'assistant', content: generatedText });
+    allMessages.push({ role: 'user', content: CONTINUE_GENERATION_PROMPT });
+  }
+}
 
 function isOpenAiQuotaOrBillingError(error) {
   const rawCode = typeof error?.code === 'string' ? error.code : '';
@@ -191,17 +343,12 @@ async function generatePostRevision({ post, draft, requestedInstructionId, notes
     await aiUsageService.lockUserUsage(client, ownerId);
     await aiUsageService.assertCanUseAi(client, ownerId);
 
-    const completion = await openaiClient.chat.completions.create({
-      model: config.openai.model,
-      temperature: config.openai.temperature,
-      max_tokens: config.openai.maxTokens,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
-    });
+    const completionResult = await createCompletionWithAutoContinue([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userMessage },
+    ]);
 
-    const generatedText = completion.choices?.[0]?.message?.content?.trim();
+    const generatedText = completionResult.content?.trim();
     if (!generatedText) {
       throw new Error('A resposta da IA veio vazia. Tente novamente.');
     }
@@ -223,8 +370,8 @@ async function generatePostRevision({ post, draft, requestedInstructionId, notes
         post.id,
         instruction?.id || null,
         config.openai.model,
-        completion.usage?.prompt_tokens ?? null,
-        completion.usage?.completion_tokens ?? null,
+        completionResult.usage?.prompt_tokens ?? null,
+        completionResult.usage?.completion_tokens ?? null,
         null,
         Date.now() - startedAt,
       ],
@@ -267,6 +414,13 @@ async function generatePostRevision({ post, draft, requestedInstructionId, notes
 }
 
 function buildConversationContext({ post, instruction, liveDraft }) {
+  const draftMaxChars = Number.isFinite(config.openai.conversationDraftMaxChars)
+    ? Math.max(1000, Math.floor(config.openai.conversationDraftMaxChars))
+    : 20000;
+  const snapshotMaxChars = Number.isFinite(config.openai.conversationSnapshotMaxChars)
+    ? Math.max(1000, Math.floor(config.openai.conversationSnapshotMaxChars))
+    : 12000;
+
   const parts = [
     `Estamos trabalhando no post "${post.title}" (status atual: ${post.status}).`,
     'O objetivo é refinar o conteúdo mantendo a voz pessoal, clareza e ritmo.',
@@ -284,13 +438,27 @@ function buildConversationContext({ post, instruction, liveDraft }) {
   const trimmedDraft = liveDraft && typeof liveDraft === 'string' ? liveDraft.trim() : '';
 
   if (trimmedDraft) {
-    parts.push('', 'Rascunho enviado nesta mensagem:', trimmedDraft.slice(0, 4000));
+    const slicedDraft = trimmedDraft.slice(0, draftMaxChars);
+    const draftSuffix = trimmedDraft.length > draftMaxChars
+      ? `\n\n[Observação: rascunho recortado para ${draftMaxChars} caracteres de ${trimmedDraft.length}.]`
+      : '';
+    parts.push('', 'Rascunho enviado nesta mensagem:', `${slicedDraft}${draftSuffix}`);
   } else if (post.contentRaw) {
-    parts.push('', 'Rascunho atual salvo:', post.contentRaw.slice(0, 2000));
+    const contentRaw = String(post.contentRaw);
+    const slicedRaw = contentRaw.slice(0, snapshotMaxChars);
+    const rawSuffix = contentRaw.length > snapshotMaxChars
+      ? `\n\n[Observação: rascunho salvo recortado para ${snapshotMaxChars} caracteres de ${contentRaw.length}.]`
+      : '';
+    parts.push('', 'Rascunho atual salvo:', `${slicedRaw}${rawSuffix}`);
   }
 
   if (post.contentFinal) {
-    parts.push('', 'Versão final publicada:', post.contentFinal.slice(0, 2000));
+    const contentFinal = String(post.contentFinal);
+    const slicedFinal = contentFinal.slice(0, snapshotMaxChars);
+    const finalSuffix = contentFinal.length > snapshotMaxChars
+      ? `\n\n[Observação: versão publicada recortada para ${snapshotMaxChars} caracteres de ${contentFinal.length}.]`
+      : '';
+    parts.push('', 'Versão final publicada:', `${slicedFinal}${finalSuffix}`);
   }
 
   return parts.join('\n');
@@ -365,18 +533,13 @@ async function continueConversation({
     await aiUsageService.lockUserUsage(client, ownerId);
     await aiUsageService.assertCanUseAi(client, ownerId);
 
-    const completion = await openaiClient.chat.completions.create({
-      model: config.openai.model,
-      temperature: config.openai.temperature,
-      max_tokens: config.openai.maxTokens,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: contextMessage },
-        ...history,
-      ],
-    });
+    const completionResult = await createCompletionWithAutoContinue([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: contextMessage },
+      ...history,
+    ]);
 
-    const generatedText = completion.choices?.[0]?.message?.content?.trim();
+    const generatedText = completionResult.content?.trim();
     if (!generatedText) {
       throw new Error('A resposta da IA veio vazia. Tente novamente.');
     }
@@ -392,8 +555,8 @@ async function continueConversation({
         conversation.id,
         instruction?.id || null,
         config.openai.model,
-        completion.usage?.prompt_tokens ?? null,
-        completion.usage?.completion_tokens ?? null,
+        completionResult.usage?.prompt_tokens ?? null,
+        completionResult.usage?.completion_tokens ?? null,
         null,
         Date.now() - startedAt,
       ],
@@ -405,7 +568,7 @@ async function continueConversation({
 
     return {
       content: normalizedGeneratedText,
-      usage: completion.usage || null,
+      usage: completionResult.usage || null,
       aiUsage,
     };
   } catch (error) {

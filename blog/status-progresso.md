@@ -50,7 +50,7 @@ _Atualizado em: 2026-04-06_
 
 ### IA e conteúdo
 
-- `aiService` integrado à OpenAI via modelo configurável em `.env` (padrão: `gpt-4o-mini`).
+- `aiService` integrado à OpenAI via modelo configurável em `.env` (padrão: `gpt-4.1-mini`).
 - Prompt combina instrução de sistema + instrução ativa + contexto do post/conversa.
 - Saída normalizada para o perfil de Markdown do editor (`markdownProfile.json`).
 - Conversas e gerações registradas em revisões e logs.

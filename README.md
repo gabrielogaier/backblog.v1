@@ -7,7 +7,7 @@ Backblog é uma plataforma fullstack de blog com área pública e painel adminis
 - Frontend: Next.js 15 + React + TypeScript + Tailwind
 - Backend: Node.js + Express 5
 - Banco: PostgreSQL
-- IA: OpenAI API (`OPENAI_MODEL`, padrão `gpt-4o-mini`)
+- IA: OpenAI API (`OPENAI_MODEL`, padrão `gpt-4.1-mini`)
 
 ## Funcionalidades atuais
 
